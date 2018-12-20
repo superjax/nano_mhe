@@ -5,13 +5,16 @@
 
 #include "nano_ad.h"
 
+#include "test_common.h"
 template<typename T>
 T scale(T in, T s)
 {
     return s * in;
 }
 
-template<typename... Ts> void func(Ts... args){
+template<typename... Ts>
+void func(Ts... args)
+{
     const int size = sizeof...(args) + 2;
     int res[size] = {1,args...,2};
     // since initializer lists guarantee sequencing, this can be used to
@@ -25,22 +28,103 @@ TEST (varTemp, variadic_templates)
     func<int, int, int, int, int, int>(1, 2, 3, 4, 5, 6);
 }
 
-TEST (CostFunctor, Compile)
+TEST (CostFunctorAutoDiff, Compile)
 {
     typedef Matrix<double, 2, 1> OT;
     typedef Matrix<double, 3, 1> IT1;
     typedef Matrix<double, 4, 1> IT2;
     typedef Matrix<double, 2, 3> JT1;
     typedef Matrix<double, 2, 4> JT2;
-    CostFunctor<OT, IT1, IT2> f;
+    CostFunctorAutoDiff<EmptyCostFunctor, OT, IT1, IT2> f;
 
     OT res;
-    IT1  x;
-    IT2  x2;
-    JT1  j;
-    JT2  j2;
+    IT1 x;
+    IT2 x2;
+    JT1 j;
+    JT2 j2;
     f.Evaluate(res, x, x2);
     f.Evaluate(res, x, x2, j, j2);
+}
+
+
+TEST (Autodiff, SimpleTest)
+{
+    Eigen::AutoDiffScalar<Eigen::Vector2d> x, y, z;
+    x = 8.0;
+    x.derivatives() << 1,0;
+    z = 2.0;
+    z.derivatives() << 0,1;
+
+    y = x*x + z;
+
+//    std::cout << "x = " << x << "\n"
+//              << "z = " << z << "\n"
+//              << "y = x^2 + z = " << y << "\n"
+//              << "dy/dx = 2x = " << y.derivatives()[0] << "\n"
+//              << "dy/dz = 1 = " << y.derivatives()[1] << std::endl;
+}
+
+TEST (Autodiff, VectorTest)
+{
+    enum {
+        NI = 2,
+        NO = 2
+    };
+    typedef Eigen::Matrix<double, NI, 1> xVec;
+    typedef Eigen::Matrix<double, NO, 1> yVec;
+    typedef Eigen::AutoDiffScalar<xVec> ADScalar;
+    typedef Eigen::Matrix<ADScalar, NI, 1> xAD;
+    typedef Eigen::Matrix<ADScalar, NO, 1> yAD;
+
+    yAD y;
+    xAD x;
+    x << 8.0, 2.0;
+    x(0).derivatives() << 1,0;
+    x(1).derivatives() << 0,1;
+
+    y = x.squaredNorm() * Vector2d{1, 1};
+
+//    std::cout << "x = [" << x.transpose() << "]\n"
+//              << "y = [x0^2 + x1^2, x0^2 + x1^2] = [" << y.transpose() << "]\n"
+//              << "dy/dx = 2x0 2x1    = " << y(0).derivatives().transpose() << "\n"
+//              << "        2x0 2x1      " << y(1).derivatives().transpose() << std::endl;
+}
+
+TEST (Autodiff, MultiParameterVectorTest)
+{
+    enum {
+        NI = 4,
+        NO = 2,
+        NX1 = 2,
+        NX2 = 2
+    };
+    typedef Eigen::Matrix<double, NI, 1> inputVec;
+    typedef Eigen::Matrix<double, NO, 1> yVec;
+    typedef Eigen::AutoDiffScalar<inputVec> ADScalar;
+    typedef Eigen::Matrix<ADScalar, NX1, 1> x1AD;
+    typedef Eigen::Matrix<ADScalar, NX2, 1> x2AD;
+    typedef Eigen::Matrix<ADScalar, NO, 1> yAD;
+
+    yAD y;
+    x1AD x1;
+    x2AD x2;
+    x1 << 8.0, 2.0;
+    x2 << 3.0, 4.0;
+    x1(0).derivatives() << 1, 0, 0, 0;
+    x1(1).derivatives() << 0, 1, 0, 0;
+    x2(0).derivatives() << 0, 0, 1, 0;
+    x2(1).derivatives() << 0, 0, 0, 1;
+
+
+    y = x1.cwiseProduct(x2);
+
+//    std::cout << "x1 = [" << x1.transpose() << "]\n"
+//              << "x2 = [" << x2.transpose() << "]\n"
+//              << "y = [x12*x21, x12*x22] = [" << y.transpose() << "]\n"
+//              << "dy/dx1 = x21 0    = " << y(0).derivatives().segment<NX1>(0).transpose() << "\n"
+//              << "         0   x22    " << y(1).derivatives().segment<NX1>(0).transpose() << "\n"
+//              << "dy/dx2 = x11 0    = " << y(0).derivatives().segment<NX2>(NX1).transpose() << "\n"
+//              << "         0   x12    " << y(1).derivatives().segment<NX2>(NX1).transpose() << std::endl;
 }
 
 

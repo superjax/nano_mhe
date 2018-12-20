@@ -10,13 +10,23 @@ find_package(GTest REQUIRED)
 add_subdirectory(lib/geometry)
 
 include_directories(include
-    lib
+    lib/geometry/include
+    lib/utils/include
     ${EIGEN3_INCLUDE_DIRS})
+
+add_library(utils
+    lib/utils/src/robot1d.cpp)
 
 add_library(nano_mhe
   src/nano_mhe.cpp
-  include/nano_mhe.h)
+  include/nano_mhe.h
+  include/imu1d.h
+  include/pos1d.h
+  include/nano_ad.h
+  include/ADJacobian.h)
 
-add_executable(nano_mhe_test src/test.cpp)
-target_link_libraries(nano_mhe_test nano_mhe gtest gtest_main ${GTEST_LIBRARIES} pthread)
+add_executable(nano_mhe_test
+    src/test_imu1d.cpp
+    src/test_autodiff.cpp)
+target_link_libraries(nano_mhe_test utils nano_mhe gtest gtest_main ${GTEST_LIBRARIES} pthread)
 

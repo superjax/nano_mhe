@@ -48,58 +48,37 @@ public:
     }
 };
 
-template <typename ADType, typename Scalar, int Rows>
-Matrix<ADType, Rows, 1> startAD(const int id, const Matrix<Scalar, Rows, 1>& x)
-{
-    Matrix<ADType, Rows, 1> x_ad = x.template cast<ADType>();
-    for (int i = 0; i < Rows; i++)
-    {
-        x_ad[i].derivatives()(id + i) = 1.0;
-    }
-    return x_ad;
-}
 
-
-
-
-template <typename Functor, typename OutType, typename... InTypes>
+template <typename Scalar, typename Functor, int NO, int... NIs>
 class CostFunctorAutoDiff : public Functor
 {
-    static constexpr int NIarr[sizeof...(InTypes)] = {InTypes::RowsAtCompileTime...};
-    static constexpr int NI = accumulator(NIarr, sizeof...(InTypes));
-    static constexpr int NO = OutType::RowsAtCompileTime;
+    static constexpr int NIarr[sizeof...(NIs)] = {(NIs)...};
+    static constexpr int NI = accumulator(NIarr, sizeof...(NIs));
 
-    typedef typename OutType::Scalar Scalar;
     typedef Matrix<Scalar, NI, 1> xVec; // vector sized for total number of inputs
     typedef Matrix<Scalar, NO, 1> yVec; // vector sized for total number of outputs
 
     typedef AutoDiffScalar<xVec> ADScalar; // AD scalar type used for this function (one output and dual numbers for all inputs)
     typedef Matrix<ADScalar, NO, 1> yAD; // output vector (one AD scalar type for all outputs) (will have the jacobian in the .derivatives field)
 
-
 public:
-    template <typename... JacTypes>
-    bool Evaluate(OutType& res, const InTypes&... x, JacTypes&... j) const
+    bool Evaluate(const Ref<yVec>& _res,
+                  const Ref<Matrix<Scalar, NIs, 1>>&... x) const
     {
-        // Do a bunch of checks to ensure all the matrices are the right size
-        static_assert(sizeof...(j) == 0 || sizeof...(x) == sizeof...(j),
-                      "supply either no jacobians, or the same number of "
-                      "jacobians as inputs.");
+        Ref<yVec>& res = const_cast<Ref<yVec>&>(_res); // const-cast hackery to get around Ref
+        return (*this)(res, x...); // simply forward arguments
+    }
 
-        constexpr int NJrowarr[sizeof...(j)] = {JacTypes::RowsAtCompileTime...};
-        constexpr int NJcolarr[sizeof...(j)] = {JacTypes::ColsAtCompileTime...};
-        static_assert(sizeof...(j) > 0 ? arrEq(NJrowarr, NO, sizeof...(x)) : true, "jacobian rows must match rows of output");
-        static_assert(sizeof...(j) > 0 ? arrEq(NJcolarr, NIarr, sizeof...(x)): true, "jacobian cols must match rows of inputs");
 
-        if (sizeof...(j) == 0)
-        {
-            return (*this)(res, x...); // simply forward arguments
-        }
-
+    bool Evaluate(const Ref<yVec>& _res,
+                  const Ref<Matrix<Scalar, NIs, 1>>&... x,
+                  const Ref<Matrix<Scalar, NO, NIs>>&... j) const
+    {
+        Ref<yVec>& res = const_cast<Ref<yVec>&>(_res); // const-cast hackery to get around Ref
         yAD r_ad; // object to hold residual and jacobian (vs all inputs)
         int counter = NI;
 
-        bool success = callJac(r_ad, x..., std::index_sequence_for<InTypes...>());
+        bool success = callJac(r_ad, x..., std::make_index_sequence<sizeof...(NIs)>());
 
         for (int i = 0; i < NO; i++)
             res(i) = r_ad(i).value();
@@ -108,19 +87,40 @@ public:
         const int* arrptr = NIarr;
         int dummy[sizeof...(j)] = {extractJac(counter, arrptr, r_ad, j)...};
         (void)dummy;
-
         return success;
     }
-    template<typename yAD, std::size_t...Is>
-    bool callJac(yAD& r, const InTypes&... x, const std::index_sequence<Is...>&) const
+
+private:
+    template <int Rows>
+    Matrix<ADScalar, Rows, 1> startAD(const int id,
+                                      const Ref<Matrix<Scalar, Rows, 1>>& x) const
     {
-        return (*this)(r, startAD<ADScalar>(accumulator(NIarr, Is), x)...);
+        Matrix<ADScalar, Rows, 1> x_ad = x.template cast<ADScalar>();
+        for (int i = 0; i < Rows; i++)
+        {
+            x_ad[i].derivatives()(id + i) = 1.0;
+        }
+        return x_ad;
     }
 
-    template <typename yAD, typename JacType>
-    int extractJac(int& counter, const int*& cols, const yAD& r, JacType& j) const
+
+
+    template<std::size_t...Is>
+    bool callJac(yAD& r,
+                 const Ref<Matrix<Scalar, NIs, 1>>&... x,
+                 const std::index_sequence<Is...>&) const
     {
-        for (int i = 0; i < JacType::RowsAtCompileTime; i++)
+        return (*this)(r, startAD(accumulator(NIarr, Is), x)...);
+    }
+
+
+    template <int Cols>
+    int extractJac(int& counter, const int*& cols,
+                   const yAD& r,
+                   const Ref<Matrix<Scalar, NO, Cols>>& _j) const
+    {
+        Ref<Matrix<Scalar, NO, Cols>>& j = const_cast<Ref<Matrix<Scalar, NO, Cols>>&>(_j);
+        for (int i = 0; i < NO; i++)
         {
             j.row(i) = r(i).derivatives().block(counter, 0, *(cols), 1).transpose();
         }

@@ -24,8 +24,7 @@ add_library(nano_mhe
   include/nano_mhe.h
   include/imu1d.h
   include/pos1d.h
-  include/nano_ad.h
-  include/ADJacobian.h)
+  include/nano_ad.h)
 
 add_executable(nano_mhe_test
     src/test_imu1d.cpp

@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <Eigen/Dense>
-#include "ADJacobian.h"
 
 #include "nano_ad.h"
 #include "geometry/quat.h"
@@ -10,14 +9,14 @@
 
 using namespace quat;
 
-TEST (CostFunctorAutoDiff, Compile)
+TEST (CostFunctorAutoDiff, CompileNormalVecs)
 {
     typedef Matrix<double, 2, 1> OT;
     typedef Matrix<double, 3, 1> IT1;
     typedef Matrix<double, 4, 1> IT2;
     typedef Matrix<double, 2, 3> JT1;
     typedef Matrix<double, 2, 4> JT2;
-    CostFunctorAutoDiff<EmptyCostFunctor, OT, IT1, IT2> f;
+    CostFunctorAutoDiff<double, EmptyCostFunctor, 2, 3, 4> f;
 
     OT res;
     IT1 x;
@@ -26,6 +25,28 @@ TEST (CostFunctorAutoDiff, Compile)
     JT2 j2;
     f.Evaluate(res, x, x2);
     f.Evaluate(res, x, x2, j, j2);
+}
+
+TEST (CostFunctorAutoDiff, CompileMaps)
+{
+    typedef Matrix<double, 2, 1> OT;
+    typedef Matrix<double, 3, 1> IT1;
+    typedef Matrix<double, 4, 1> IT2;
+    typedef Matrix<double, 2, 3> JT1;
+    typedef Matrix<double, 2, 4> JT2;
+    CostFunctorAutoDiff<double, EmptyCostFunctor, 2, 3, 4> f;
+
+    OT res;
+    IT1 x;
+    IT2 x2;
+    JT1 j;
+    JT2 j2;
+    Map<OT> _res(res.data());
+    Map<IT1> _x(x.data());
+    Map<IT2> _x2(x2.data());
+    Map<JT1> _j(j.data());
+    Map<JT2> _j2(j2.data());
+    f.Evaluate(_res, _x, _x2, _j, _j2);
 }
 
 
@@ -127,7 +148,7 @@ struct SimpleFunctor
 
 TEST (Autodiff, EvaluateFunctor)
 {
-    CostFunctorAutoDiff<SimpleFunctor, Vector2d, Vector2d, Vector2d> f;
+    CostFunctorAutoDiff<double, SimpleFunctor, 2, 2, 2> f;
 
     Vector2d x1{8, 2};
     Vector2d x2{3, 4};
@@ -142,7 +163,7 @@ TEST (Autodiff, EvaluateFunctor)
 
 TEST (Autodiff, AutoDiffFunctor)
 {
-    CostFunctorAutoDiff<SimpleFunctor, Vector2d, Vector2d, Vector2d> f;
+    CostFunctorAutoDiff<double, SimpleFunctor, 2, 2, 2> f;
 
     Vector2d x1{8, 2};
     Vector2d x2{3, 4};
@@ -166,25 +187,36 @@ TEST (Autodiff, AutoDiffFunctor)
 struct QuatPlus
 {
     template<typename Derived1, typename Derived2, typename Derived3>
-    bool operator()(Derived1& qp, const Derived2 q, const Derived3 delta) const
+    bool operator()(Derived1& _qp, const Derived2 _q, const Derived3 delta) const
     {
+        typedef typename Derived1::Scalar T;
+        typedef Matrix<T, 4, 1> Vec4;
+        typedef Matrix<T, 3, 1> Vec3;
+        Quat<T> qp(_qp);
+        Quat<T> q(_q);
+        Vec4 qpdebug= _qp;
+        Vec4 qdebug= _q;
+        Vec3 ddebug = delta;
         qp = q + delta;
+
         return true;
     }
 };
-typedef CostFunctorAutoDiff<QuatPlus, Vector4d, Vector4d, Vector3d> QuatParam;
+typedef CostFunctorAutoDiff<double, QuatPlus, 4, 4, 3> QuatParam;
 
-//TEST (Autodiff, Quaternion)
-//{
-//    Quatd q1 = Quatd::from_euler(10.0*M_PI/180.0, -45.0*M_PI/180.0, 20.0*M_PI/180.0);
-//    Vector3d delta = (Vector3d() << 0.1, 0.2, 0.3).finished();
-//    Quatd qp;
-//    Matrix<double, 4, 4> dqp_dq1;
-//    Matrix<double, 4, 3> dqp_ddelta;
+TEST (Autodiff, Quaternion)
+{
+    Quatd q1 = Quatd::from_euler(10.0*M_PI/180.0, -45.0*M_PI/180.0, 20.0*M_PI/180.0);
+    Vector3d delta = (Vector3d() << 0.01, 0.02, -0.01).finished();
+    Quatd qp;
+    Matrix<double, 4, 4> dqp_dq1;
+    Matrix<double, 4, 3> dqp_ddelta;
 
-//    QuatParam qf;
-//    qf.Evaluate(qp.arr_, q1.arr_, delta, dqp_dq1, dqp_ddelta);
+    QuatParam qf;
+    qf.Evaluate(qp.arr_, q1.arr_, delta, dqp_dq1, dqp_ddelta);
 
-
-//}
+    Vector4d delta_lin_test = q1.arr_ + dqp_ddelta * delta;
+    delta_lin_test.normalize();
+    ASSERT_MAT_NEAR(delta_lin_test, qp.arr_, 1e-3);
+}
 

@@ -4,29 +4,11 @@
 #include "ADJacobian.h"
 
 #include "nano_ad.h"
+#include "geometry/quat.h"
 
 #include "test_common.h"
-template<typename T>
-T scale(T in, T s)
-{
-    return s * in;
-}
 
-template<typename... Ts>
-void func(Ts... args)
-{
-    const int size = sizeof...(args) + 2;
-    int res[size] = {1,args...,2};
-    // since initializer lists guarantee sequencing, this can be used to
-    // call a function on each element of a pack, in order:
-    int scaled[sizeof...(Ts)] = { scale(args, 2)... };
-}
-
-TEST (varTemp, variadic_templates)
-{
-    func<int, int, int>(1, 2, 3);
-    func<int, int, int, int, int, int>(1, 2, 3, 4, 5, 6);
-}
+using namespace quat;
 
 TEST (CostFunctorAutoDiff, Compile)
 {
@@ -57,11 +39,9 @@ TEST (Autodiff, SimpleTest)
 
     y = x*x + z;
 
-//    std::cout << "x = " << x << "\n"
-//              << "z = " << z << "\n"
-//              << "y = x^2 + z = " << y << "\n"
-//              << "dy/dx = 2x = " << y.derivatives()[0] << "\n"
-//              << "dy/dz = 1 = " << y.derivatives()[1] << std::endl;
+    ASSERT_FLOAT_EQ(y.value(), 66.0);
+    ASSERT_FLOAT_EQ(y.derivatives()(0), 2*8.0); // dydx = 2x
+    ASSERT_FLOAT_EQ(y.derivatives()(1), 1.0); // dydz = 1
 }
 
 TEST (Autodiff, VectorTest)
@@ -84,10 +64,14 @@ TEST (Autodiff, VectorTest)
 
     y = x.squaredNorm() * Vector2d{1, 1};
 
-//    std::cout << "x = [" << x.transpose() << "]\n"
-//              << "y = [x0^2 + x1^2, x0^2 + x1^2] = [" << y.transpose() << "]\n"
-//              << "dy/dx = 2x0 2x1    = " << y(0).derivatives().transpose() << "\n"
-//              << "        2x0 2x1      " << y(1).derivatives().transpose() << std::endl;
+    Matrix2d dydx_desired;
+    dydx_desired << 16, 4, 16, 4;
+
+    ASSERT_FLOAT_EQ(y(0).value(), 68);
+    ASSERT_FLOAT_EQ(y(1).value(), 68);
+
+    ASSERT_MAT_EQ(y(0).derivatives().transpose(), dydx_desired.row(0));
+    ASSERT_MAT_EQ(y(1).derivatives().transpose(), dydx_desired.row(1));
 }
 
 TEST (Autodiff, MultiParameterVectorTest)
@@ -118,141 +102,89 @@ TEST (Autodiff, MultiParameterVectorTest)
 
     y = x1.cwiseProduct(x2);
 
-//    std::cout << "x1 = [" << x1.transpose() << "]\n"
-//              << "x2 = [" << x2.transpose() << "]\n"
-//              << "y = [x12*x21, x12*x22] = [" << y.transpose() << "]\n"
-//              << "dy/dx1 = x21 0    = " << y(0).derivatives().segment<NX1>(0).transpose() << "\n"
-//              << "         0   x22    " << y(1).derivatives().segment<NX1>(0).transpose() << "\n"
-//              << "dy/dx2 = x11 0    = " << y(0).derivatives().segment<NX2>(NX1).transpose() << "\n"
-//              << "         0   x12    " << y(1).derivatives().segment<NX2>(NX1).transpose() << std::endl;
+    ASSERT_FLOAT_EQ(y(0).value(), 24.0);
+    ASSERT_FLOAT_EQ(y(1).value(), 8.0);
+
+    Matrix2d dydx1, dydx2;
+    dydx1 << 3.0, 0, 0, 4.0;
+    dydx2 << 8.0, 0, 0, 2.0;
+
+    ASSERT_MAT_EQ(y(0).derivatives().topRows<2>().transpose(), dydx1.row(0));
+    ASSERT_MAT_EQ(y(1).derivatives().topRows<2>().transpose(), dydx1.row(1));
+    ASSERT_MAT_EQ(y(0).derivatives().bottomRows<2>().transpose(), dydx2.row(0));
+    ASSERT_MAT_EQ(y(1).derivatives().bottomRows<2>().transpose(), dydx2.row(1));
 }
 
+struct SimpleFunctor
+{
+    template<typename Derived1, typename Derived2, typename Derived3>
+    bool operator()(Derived1& y, const Derived2& x1, const Derived3& x2) const
+    {
+        y = x1.cwiseProduct(x2);
+        return true;
+    }
+};
 
-//using namespace Eigen;
+TEST (Autodiff, EvaluateFunctor)
+{
+    CostFunctorAutoDiff<SimpleFunctor, Vector2d, Vector2d, Vector2d> f;
 
-//class testFunctor : public CostFunctor<double, 2, 1, 2, 3>
+    Vector2d x1{8, 2};
+    Vector2d x2{3, 4};
+    Vector2d y;
+
+    f.Evaluate(y, x1, x2);
+
+    Vector2d y_des;
+    y_des << 24, 8;
+    ASSERT_MAT_EQ(y_des, y);
+}
+
+TEST (Autodiff, AutoDiffFunctor)
+{
+    CostFunctorAutoDiff<SimpleFunctor, Vector2d, Vector2d, Vector2d> f;
+
+    Vector2d x1{8, 2};
+    Vector2d x2{3, 4};
+    Matrix2d dfdx1, dfdx2;
+    Vector2d y;
+
+    f.Evaluate(y, x1, x2, dfdx1, dfdx2);
+
+    Vector2d y_des;
+    y_des << 24, 8;
+    ASSERT_MAT_EQ(y_des, y);
+
+    Matrix2d dydx1_des, dydx2_des;
+    dydx1_des << 3.0, 0, 0, 4.0;
+    dydx2_des << 8.0, 0, 0, 2.0;
+
+    ASSERT_MAT_EQ(dfdx1, dydx1_des);
+    ASSERT_MAT_EQ(dfdx2, dydx2_des);
+}
+
+struct QuatPlus
+{
+    template<typename Derived1, typename Derived2, typename Derived3>
+    bool operator()(Derived1& qp, const Derived2 q, const Derived3 delta) const
+    {
+        qp = q + delta;
+        return true;
+    }
+};
+typedef CostFunctorAutoDiff<QuatPlus, Vector4d, Vector4d, Vector3d> QuatParam;
+
+//TEST (Autodiff, Quaternion)
 //{
+//    Quatd q1 = Quatd::from_euler(10.0*M_PI/180.0, -45.0*M_PI/180.0, 20.0*M_PI/180.0);
+//    Vector3d delta = (Vector3d() << 0.1, 0.2, 0.3).finished();
+//    Quatd qp;
+//    Matrix<double, 4, 4> dqp_dq1;
+//    Matrix<double, 4, 3> dqp_ddelta;
 
-//};
-
-///*
-// * Testing differentiation that will produce a gradient.
-// */
-//template <typename Scalar, int iR>
-//Scalar scalar_func(const Matrix<Scalar, iR, 1> &input, Matrix<Scalar, iR, 1> *grad)
-//{
-//  eigen_assert(grad != 0);
-
-//  /* Some typedefs to not need and rewrite the long expressions. */
-//  typedef AutoDiffScalar< Matrix<Scalar, iR, 1> > ADS;
-
-//  /* Create and initialize the AutoDiff vector. */
-//  Matrix<ADS, iR, 1> ad;
-
-//  for (int i = 0; i < iR; i++)
-//    ad(i) = ADS(input(i), iR, i);  // AutoDiff initialization
-
-//  ADS s(0);
-
-//  for (int i = 0; i < iR; i++)
-//  {
-//    s += exp(ad(i));
-//  }
-
-//  (*grad) = s.derivatives();
-
-//  return s.value();
-//}
-
-///*
-// * Testing differentiation that will produce a Jacobian, using functors and the
-// * ADJacobian helper.
-// *
-// * Example: 2 state 0th order integrator
-// */
-//template <typename Scalar>
-//struct integratorFunctor
-//{
-//  /*
-//   * Definitions required by ADJacobian.
-//   */
-//  typedef Matrix<Scalar, 2, 1> InputType;
-//  typedef Matrix<Scalar, 2, 1> ValueType;
-
-//  /*
-//   * Implementation starts here.
-//   */
-//  integratorFunctor(const Scalar gain) :
-//      _gain(gain)
-//  {}
-
-//  const Scalar _gain;
-
-//  /* The types of the arguments are inferred by ADJacobian.
-//   * For ease of thinking, IT = InputType and V2 = ValueType. */
-//  template <typename IT, typename V2>
-//  void operator() (const IT &input, V2 *output, const Scalar dt) const
-//  {
-//    V2 &o = *output;
-
-//    /* Integrator to test the AD. */
-//    o[0] = input[0] + input[1] * dt * _gain;
-//    o[1] = input[1] * _gain;
-//  }
-//};
+//    QuatParam qf;
+//    qf.Evaluate(qp.arr_, q1.arr_, delta, dqp_dq1, dqp_ddelta);
 
 
-//int main(int argc, char *argv[])
-//{
-
-//  typedef Matrix<float, 3, 1> myvec;
-
-//  /* Value vector for the gradient test. */
-//  myvec vec, vec_grad;
-//  vec << 1,2,3;
-
-//  /*
-//   * Run the test using AutoDiffScalar.
-//   */
-//  auto grad_test = scalar_func(vec, &vec_grad);
-
-
-//  /*
-//   * Run the example using ADJacobian.
-//   */
-
-//  /* Input vector and sampling time. */
-//  Matrix<float, 2, 1> in;
-//  in << 1,2;
-//  const float dt = 1e-2;
-//  const float gain = 3;
-
-//  /* Outputs. */
-//  Matrix<float, 2, 1> out;
-//  Matrix<float, 2, 2> jac;
-
-//  /* Test the ADJacobian. */
-//  ADJacobian< integratorFunctor<float> > adjac(3);
-//  adjac(in, &out, &jac, dt);
-
-
-//  /*
-//   * Do some printing.
-//   */
-//  std::cout << "grad_test = " << std::endl;
-//  std::cout << grad_test << std::endl << std::endl;
-//  std::cout << "Gradient of grad_test = " << std::endl;
-//  std::cout << vec_grad << std::endl << std::endl;
-
-//  std::cout << std::endl << "ADJacobian test on 0th order integrator, dt = "
-//            << dt << std::endl;
-//  std::cout << "in = " << std::endl;
-//  std::cout << in << std::endl << std::endl;
-//  std::cout << "out = " << std::endl;
-//  std::cout << out << std::endl << std::endl;
-//  std::cout << "Jacobian = " << std::endl;
-//  std::cout << jac << std::endl;
-
-//  return 0;
 //}
 

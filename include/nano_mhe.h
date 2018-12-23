@@ -7,17 +7,19 @@
 
 using namespace Eigen;
 
-#ifdef NDEBUG
-#define NANO_MHE_ASSERT(...)
+#ifndef NDEBUG
+#define NANO_MHE_ASSERT(condition, ...) \
+    do { \
+        if (! (condition)) { \
+            std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
+                      << " line " << __LINE__ << ": " << printf(__VA_ARGS__) << std::endl; \
+            assert(condition); \
+        } \
+    } while (false)
 #else
-#define NANO_MHE_ASSERT(cond, message) \
-    assert(cond)
-//    if(!(cond)) \
-//    { \
-//        throw std::runtime_error(message);\
-//        assert(cond);\
-//    }
+#   define ASSERT(condition, message) do { } while (false)
 #endif
+
 
 
 // N is the number of nodes
@@ -64,8 +66,8 @@ public:
 
     const Map<const nVec> getState(int node) const
     {
-        NANO_MHE_ASSERT(node <= n_, "Tried acces a node from the future");
-        NANO_MHE_ASSERT(node > n_-K, "Tried acces a node beyond buffer");
+        NANO_MHE_ASSERT(node <= n_, "Tried to access a node from the future");
+        NANO_MHE_ASSERT(node > n_-K, "Tried to access a node beyond buffer");
         NANO_MHE_ASSERT(k_ >= 0 && n_ >= 0, "tried to get state before setting state");
 
         return Map<const nVec>(X_.data() + 2*n2k(node));

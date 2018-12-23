@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma")
 
 enable_testing()
-find_package(Eigen3 REQUIRED)
+#find_package(Eigen3 REQUIRED)
 find_package(GTest REQUIRED)
 
 add_subdirectory(lib/geometry)
@@ -13,7 +13,7 @@ add_subdirectory(lib/geometry)
 include_directories(include
     lib/geometry/include
     lib/utils/include
-    ${EIGEN3_INCLUDE_DIRS}
+    lib/eigen_sparse_qr
     ${GTEST_INCLUDE_DIRS})
 
 add_library(utils
@@ -29,6 +29,7 @@ add_library(nano_mhe
 add_executable(nano_mhe_test
     src/test_imu1d.cpp
     src/test_autodiff.cpp
+    src/test_lm.cpp
     include/test_common.h
 )
 target_link_libraries(nano_mhe_test utils nano_mhe gtest gtest_main ${GTEST_LIBRARIES} pthread)

@@ -103,8 +103,6 @@ private:
         return x_ad;
     }
 
-
-
     template<std::size_t...Is>
     bool callJac(yAD& r,
                  const Ref<Matrix<Scalar, NIs, 1>>&... x,

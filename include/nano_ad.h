@@ -42,7 +42,7 @@ class EmptyCostFunctor
 {
 public:
     template <typename OutType, typename... InTypes>
-    bool operator()(OutType& res, const InTypes&... x) const
+    bool f(OutType& res, const InTypes&... x) const
     {
         return true;
     }
@@ -66,7 +66,7 @@ public:
                   const Ref<Matrix<Scalar, NIs, 1>>&... x) const
     {
         Ref<yVec>& res = const_cast<Ref<yVec>&>(_res); // const-cast hackery to get around Ref
-        return (*this)(res, x...); // simply forward arguments
+        return (*this).f(res, x...); // simply forward arguments
     }
 
 
@@ -85,7 +85,7 @@ public:
 
         counter = 0;
         const int* arrptr = NIarr;
-        int dummy[sizeof...(j)] = {extractJac(counter, arrptr, r_ad, j)...};
+        int dummy[sizeof...(j)] = { extractJac(counter, arrptr, r_ad, j)... };
         (void)dummy;
         return success;
     }
@@ -110,7 +110,7 @@ private:
                  const Ref<Matrix<Scalar, NIs, 1>>&... x,
                  const std::index_sequence<Is...>&) const
     {
-        return (*this)(r, startAD(accumulator(NIarr, Is), x)...);
+        return Functor::f(r, startAD(accumulator(NIarr, Is), x)...);
     }
 
 

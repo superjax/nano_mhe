@@ -139,7 +139,7 @@ TEST (Autodiff, MultiParameterVectorTest)
 struct SimpleFunctor
 {
     template<typename Derived1, typename Derived2, typename Derived3>
-    bool operator()(Derived1& y, const Derived2& x1, const Derived3& x2) const
+    bool f(Derived1& y, const Derived2& x1, const Derived3& x2) const
     {
         y = x1.cwiseProduct(x2);
         return true;
@@ -187,7 +187,7 @@ TEST (Autodiff, AutoDiffFunctor)
 struct QuatPlus
 {
     template<typename Derived1, typename Derived2, typename Derived3>
-    bool operator()(Derived1& _qp, const Derived2 _q, const Derived3 delta) const
+    bool f(Derived1& _qp, const Derived2 _q, const Derived3 delta) const
     {
         typedef typename Derived1::Scalar T;
         typedef Matrix<T, 4, 1> Vec4;

@@ -38,22 +38,18 @@ constexpr int arrEq(const int* arr1, const int arr2, const int size)
 }
 
 
-class EmptyCostFunctor
-{
-public:
-    template <typename OutType, typename... InTypes>
-    bool f(OutType& res, const InTypes&... x) const
-    {
-        return true;
-    }
-};
-
-
 template <typename Scalar, typename Functor, int NO, int... NIs>
 class CostFunctorAutoDiff : public Functor
 {
+public:
+
     static constexpr int NIarr[sizeof...(NIs)] = {(NIs)...};
     static constexpr int NI = accumulator(NIarr, sizeof...(NIs));
+
+    enum {
+        NumInputs = NI,
+        NumOutputs = NO
+    };
 
     typedef Matrix<Scalar, NI, 1> xVec; // vector sized for total number of inputs
     typedef Matrix<Scalar, NO, 1> yVec; // vector sized for total number of outputs
@@ -61,7 +57,6 @@ class CostFunctorAutoDiff : public Functor
     typedef AutoDiffScalar<xVec> ADScalar; // AD scalar type used for this function (one output and dual numbers for all inputs)
     typedef Matrix<ADScalar, NO, 1> yAD; // output vector (one AD scalar type for all outputs) (will have the jacobian in the .derivatives field)
 
-public:
     bool Evaluate(const Ref<yVec>& _res,
                   const Ref<Matrix<Scalar, NIs, 1>>&... x) const
     {
@@ -129,3 +124,14 @@ private:
         return 0;
     }
 };
+
+class EmptyCostFunctor
+{
+public:
+    template <typename OutType, typename... InTypes>
+    bool f(OutType& res, const InTypes&... x) const
+    {
+        return true;
+    }
+};
+typedef CostFunctorAutoDiff<double, EmptyCostFunctor, 2, 2> EmptyCostFunctorAD;

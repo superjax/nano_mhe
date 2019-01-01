@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mfma")
 
 enable_testing()
-#find_package(Eigen3 REQUIRED)
-add_subdirectory(lib/eigen3)
-set(EIGEN3_INCLUDE_DIRS "lib/eigen3 lib/eigen3/Eigen lib/eigen3/unsupported")
+find_package(Eigen3 REQUIRED)
+#add_subdirectory(lib/eigen3)
+#set(EIGEN3_INCLUDE_DIRS "lib/eigen3 lib/eigen3/Eigen lib/eigen3/unsupported")
 
 find_package(GTest REQUIRED)
 
@@ -16,9 +16,7 @@ add_subdirectory(lib/geometry)
 include_directories(include
     lib/geometry/include
     lib/utils/include
-    lib/eigen3
-    lib/eigen3/unsupported
-    lib/eigen3/unsupported/Eigen
+    ${EIGEN3_INCLUDE_DIRS}
     ${GTEST_INCLUDE_DIRS})
 
 add_library(utils
@@ -29,7 +27,9 @@ add_library(nano_mhe
   include/nano_mhe.h
   include/imu1d.h
   include/pos1d.h
-  include/nano_ad.h)
+  include/nano_ad.h
+  include/nano_lm.h
+)
 
 add_executable(nano_mhe_test
     src/test_imu1d.cpp

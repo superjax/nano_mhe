@@ -2,15 +2,16 @@
 
 #include <Eigen/Core>
 #include <unsupported/Eigen/LevenbergMarquardt>
-#include <src/LevenbergMarquardt/LevenbergMarquardt.h>
 
 #include "test_common.h"
 #include "nano_ad.h"
+#include "nano_lm.h"
 
 using namespace Eigen;
 
 struct lmAnalytical : DenseFunctor<double>
 {
+    static constexpr int NX = DenseFunctor::InputsAtCompileTime;
     lmAnalytical(void): DenseFunctor<double>(3,15) {}
     int operator()(const VectorXd &x, VectorXd &fvec) const
     {
@@ -45,7 +46,7 @@ struct lmAnalytical : DenseFunctor<double>
     }
 };
 
-TEST (LM, AnalyticalDerivatives)
+TEST (EigenLM, AnalyticalDerivatives)
 {
     const int m=15, n=3;
     int info;
@@ -80,11 +81,8 @@ TEST (LM, AnalyticalDerivatives)
         0.002869941,    0.09480935,   -0.09098995,
         -0.002656662,   -0.09098995,    0.08778727;
 
-  //  std::cout << fjac*covfac << std::endl;
-
     MatrixXd cov;
     cov =  covfac*lm.matrixR().topLeftCorner<n,n>();
-//    ASSERT_MAT_NEAR( cov, cov_ref, 1e-3);
 }
 
 struct lmFunc
@@ -107,6 +105,7 @@ public:
         return true;
     }
 };
+typedef CostFunctorAutoDiff<double, lmFunc, 15, 3> lmFuncAD;
 
 
 struct lmAutoDiff : public DenseFunctor<double>
@@ -122,7 +121,6 @@ public:
         xVec x = _x;
         yVec y;
         if (f_.Evaluate(y, x))
-//        if (true)
         {
             _y = y;
             return 0;
@@ -139,7 +137,6 @@ public:
         xVec x = _x;
         jMat j;
         if (f_.Evaluate(y, x, j))
-//        if (true)
         {
             _j = j;
             return 0;
@@ -152,7 +149,7 @@ public:
     CostFunctorAutoDiff<double, lmFunc, 15, 3> f_;
 };
 
-TEST (LM, AutoDiffEquivalent)
+TEST (EigenLM, AutoDiffEquivalent)
 {
     const int m=15, n=3;
     int info;
@@ -195,21 +192,23 @@ TEST (LM, AutoDiffEquivalent)
     ASSERT_MAT_EQ(J_A, J_AD);
 }
 
-TEST (LM, AutoDiff)
+TEST (EigenLM, AutoDiff)
 {
     const int m=15, n=3;
     int info;
-    double fnorm, covfac;
+    double fnorm;
     VectorXd x;
 
     /* the following starting values provide a rough fit. */
-    x.setConstant(n, 1.);
 
     // Create the Functors
     lmAutoDiff ad_functor;
     LevenbergMarquardt<lmAutoDiff> lm(ad_functor);
-    info = lm.minimize(x);
-
+    for (int i = 0; i < 1000000; i++)
+    {
+        x.setConstant(n, 1.);
+        info = lm.minimize(x);
+    }
     // check return values
     ASSERT_EQ(info, 1);
     ASSERT_EQ(lm.nfev(), 6);
@@ -222,17 +221,30 @@ TEST (LM, AutoDiff)
     // check x
     VectorXd x_ref(n);
     x_ref << 0.08241058, 1.133037, 2.343695;
-    ASSERT_MAT_NEAR(x, x_ref, 1e-3);
+    ASSERT_MAT_NEAR(x, x_ref, 1e-6);
+}
 
-    MatrixXd cov_ref(n,n);
-    cov_ref <<
-        0.0001531202,   0.002869941,  -0.002656662,
-        0.002869941,    0.09480935,   -0.09098995,
-        -0.002656662,   -0.09098995,    0.08778727;
+TEST (nanoLM, Minimize)
+{
+    lmFuncAD functor;
+    nano::levenbergMarquardtParameters<double> params;
+    nano::levenbergMarquardt<double, lmFuncAD> lm(&functor, &params);
 
-  //  std::cout << fjac*covfac << std::endl;
+    Matrix<double, 3, 1> x;
+    Matrix<double, 15, 1> y;
 
-    MatrixXd cov;
-    cov =  covfac*lm.matrixR().topLeftCorner<n,n>();
-//    ASSERT_MAT_NEAR( cov, cov_ref, 1e-3);
+    int info;
+    for (int i = 0; i < 1000000; i++)
+    {
+        x.setOnes();
+        info = lm.minimize(x);
+    }
+
+    ASSERT_EQ(info, 1);
+    ASSERT_EQ(lm.nfev_, 6);
+    ASSERT_EQ(lm.njev_, 5);
+
+    Matrix<double, 3, 1> x_ref;
+    x_ref << 0.08241058, 1.133037, 2.343695;
+    ASSERT_MAT_NEAR(x, x_ref, 1e-6);
 }

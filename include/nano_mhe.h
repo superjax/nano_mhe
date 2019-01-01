@@ -5,6 +5,8 @@
 #include "imu1d.h"
 #include "pos1d.h"
 
+#include "nano_lm.h"
+
 using namespace Eigen;
 
 #ifdef NDEBUG
@@ -22,18 +24,22 @@ using namespace Eigen;
 
 // N is the number of nodes
 template<typename T, int K>
-class MHE_1D
+class MHE_1D_Base
 {
-static constexpr int NY = 2*(K-1)+K; // number of residuals in estimator
-static constexpr int NX = (K*2)+1; // number of states in estimator
-typedef Matrix<T, NX, 1> XVec;
-typedef Matrix<T, NY, 1> ZVec;
-typedef Matrix<T, NY, NX> JMat;
 
 public:
+    enum
+    {
+        NY = 2*(K-1)+K, // number of residuals in estimator
+        NX = (K*2)+1 // number of states in estimator
+    };
+    typedef Matrix<T, NX, 1> XVec;
+    typedef Matrix<T, NY, 1> ZVec;
+    typedef Matrix<T, NY, NX> JMat;
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     typedef Matrix<T, 2, 1> nVec; // node
-    MHE_1D()
+    MHE_1D_Base()
     {
         k_ = -1;
         n_ = -1;
@@ -117,30 +123,37 @@ public:
 
     }
 
-    void evalResiduals()
+    bool evalResiduals()
+    {
+        return f(Z_, X_);
+    }
+
+    template <typename OutType, typename InType>
+    bool f(OutType& z, InType& x)
     {
         for (int i = 0; i < K-1; i++)
         {
             if (imu_ids_[i].second >= 0)
             {
-                T* xi = X_.data() + 2*imu_ids_[i].first;
-                T* xj = X_.data() + 2*imu_ids_[i].second;
-                T* b = X_.data() + 2*K;
-                T* res = Z_.data() + 2*i;
+                T* xi = x.data() + 2*imu_ids_[i].first;
+                T* xj = x.data() + 2*imu_ids_[i].second;
+                T* b = x.data() + 2*K;
+                T* res = z.data() + 2*i;
                 imu_[i](xi, xj, b, res);
             }
             else
             {
-                Z_.template segment<2>(2*i).setZero();
+                z.template segment<2>(2*i).setZero();
             }
         }
 
         for (int k = 0; k < K; k++)
         {
-            T* xk = X_.data() + 2*k;
-            T* res = Z_.data() + 2*(K-1)+k;
+            T* xk = x.data() + 2*k;
+            T* res = z.data() + 2*(K-1)+k;
             pos_[k](xk, res);
         }
+        return true;
     }
 
     inline int n2k(int node) const
@@ -164,5 +177,10 @@ public:
     double acc_var_; // variance of acceleration
     double pos_var_; // variance of position
 
+    nano::levenbergMarquardtParameters<T> params_;
 
+//    nano::levenbergMarquardt<double, funcAD> lm_;
 };
+
+template<typename T, int K>
+using MHE_1D = CostFunctorAutoDiff<double, MHE_1D_Base<double, 5>, MHE_1D_Base<double, 5>::NY, MHE_1D_Base<double, 5>::NX>;

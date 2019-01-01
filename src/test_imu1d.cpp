@@ -171,3 +171,8 @@ TEST (nano_mhe, full_graph)
             ASSERT_NEAR(mhe.Z_(i), 0.0, 1e-8);
     }
 }
+
+TEST (nano_mhe, CompileLM)
+{
+    MHE_1D<double, 5> f_;
+}

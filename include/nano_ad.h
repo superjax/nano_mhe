@@ -1,11 +1,12 @@
 #pragma once
 
-#include <Eigen/Core>
-#include <unsupported/Eigen/AutoDiff>
 #include <initializer_list>
 #include <numeric>
 #include <iostream>
 #include <utility>
+
+#include <Eigen/Core>
+#include <unsupported/Eigen/AutoDiff>
 
 #ifndef NDEBUG
 #define NANO_AD_ASSERT(condition, ...) \
@@ -97,8 +98,6 @@ private:
         }
         return x_ad;
     }
-
-
 
     template<std::size_t...Is>
     bool callJac(yAD& r,

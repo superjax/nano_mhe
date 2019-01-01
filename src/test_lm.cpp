@@ -200,15 +200,12 @@ TEST (EigenLM, AutoDiff)
     VectorXd x;
 
     /* the following starting values provide a rough fit. */
+    x.setConstant(n, 1.);
 
     // Create the Functors
     lmAutoDiff ad_functor;
     LevenbergMarquardt<lmAutoDiff> lm(ad_functor);
-    for (int i = 0; i < 1000000; i++)
-    {
-        x.setConstant(n, 1.);
-        info = lm.minimize(x);
-    }
+    info = lm.minimize(x);
     // check return values
     ASSERT_EQ(info, 1);
     ASSERT_EQ(lm.nfev(), 6);
@@ -232,13 +229,9 @@ TEST (nanoLM, Minimize)
 
     Matrix<double, 3, 1> x;
     Matrix<double, 15, 1> y;
+    x.setOnes();
 
-    int info;
-    for (int i = 0; i < 1000000; i++)
-    {
-        x.setOnes();
-        info = lm.minimize(x);
-    }
+    int info = lm.minimize(x);
 
     ASSERT_EQ(info, 1);
     ASSERT_EQ(lm.nfev_, 6);

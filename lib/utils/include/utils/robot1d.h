@@ -10,13 +10,11 @@ using namespace Eigen;
 class Robot1D
 {
 public:
-  Robot1D(double _ba, double Q, double Td=0.0);
+  Robot1D(double _ba, double acc_var, double Td=0.0);
 
   void add_waypoint(double wp);
-
   void step(double dt);
-
-  double pos_meas(const double &p_stdev);
+  double pos_meas(const double &p_var);
 
   double xhat_;
   double vhat_;
@@ -41,6 +39,7 @@ public:
   double a_;
   double kp_;
   double kd_;
+  double max_F_;
   double prev_x_;
   int i_;
 

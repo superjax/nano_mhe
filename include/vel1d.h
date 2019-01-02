@@ -4,10 +4,10 @@
 
 
 template <typename T>
-class Pos1D
+class Vel1D
 {
 public:
-    Pos1D()
+    Vel1D()
     {
         y_ = 0.0;
     }

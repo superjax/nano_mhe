@@ -24,19 +24,20 @@ add_library(utils
 
 add_library(nano_mhe
   src/nano_mhe.cpp
-  include/nano_mhe.h
+  include/nano_mhe1d.h
   include/imu1d.h
   include/pos1d.h
+  include/vel1d.h
   include/nano_ad.h
   include/nano_lm.h
 )
 
 add_executable(nano_mhe_test
     src/test_imu1d.cpp
+    src/test_mhe1d.cpp
     src/test_autodiff.cpp
     src/test_lm.cpp
-    include/test_common.h
-)
+    include/test_common.h)
 target_link_libraries(nano_mhe_test utils nano_mhe gtest gtest_main ${GTEST_LIBRARIES} pthread)
 #add_custom_command(
 #     TARGET nano_mhe_test

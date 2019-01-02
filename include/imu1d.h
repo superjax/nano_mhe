@@ -23,9 +23,9 @@ public:
         J_.setZero();
     }
 
-    void init(T* _b, T* avar)
+    void init(const T& _b0, T* avar)
     {
-        b_ = _b;
+        b_ = _b0;
         avar_ = avar;
     }
 
@@ -60,7 +60,7 @@ public:
       Vec2 C {-0.5*dt*dt, dt};
 
       // Propagate state
-      y_ = A*y_ + B*y + C*(*b_);
+      y_ = A*y_ + B*y + C*b_;
 
       P_ = A*P_*A.transpose() + B*(*avar_)*B.transpose();
 
@@ -84,20 +84,25 @@ public:
         Omega_ = P_.inverse().llt().matrixL().transpose();
     }
 
-    bool operator()(const T* _xi, const T* _xj, const T* _b, T *residuals) const
+    template<typename Scalar>
+    bool operator()(const Scalar* _xi, const Scalar* _xj, const Scalar* _b, Scalar *residuals) const
     {
-      typedef Matrix<T, 2, 1> Vec2;
+      typedef Matrix<Scalar, 2, 1> Vec2;
       Map<const Vec2> xi(_xi);
       Map<const Vec2> xj(_xj);
       Map<Vec2> r(residuals);
 
       // Use the jacobian to re-calculate y_ with change in bias
-      T db = *_b - (*b_);
+      Scalar db = *_b - b_;
 
       Vec2 y_db = y_ + J_ * db;
 
+
       r(P) = (xj(P) - xi(P) - xi(V)*delta_t_) - y_db(ALPHA);
       r(V) = (xj(V) - xi(V)) - y_db(BETA);
+      Vec2 xid = xi;
+      Vec2 xjd = xj;
+      Vec2 rd = r;
       r = Omega_ * r;
 
       return true;
@@ -114,7 +119,7 @@ private:
     };
 
     T t0_;
-    T* b_;
+    T b_;
     T* avar_;
 
     T delta_t_;

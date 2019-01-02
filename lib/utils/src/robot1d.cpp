@@ -9,7 +9,7 @@
 
 using namespace Eigen;
 
-Robot1D::Robot1D(double _ba, double Q, double Td) :
+Robot1D::Robot1D(double _ba, double acc_var, double Td) :
     normal_(0.0, 1.0)
 {
     x_ = 0;
@@ -18,12 +18,13 @@ Robot1D::Robot1D(double _ba, double Q, double Td) :
     i_ = 0;
     t_ = 0;
     prev_x_ = NAN;
-    kp_ = 0.3;
-    kd_ = 0.003;
+    kp_ = 0.1;
+    kd_ = 0.01;
+    max_F_ = 0.5;
     b_ = _ba;
     Td_ = Td;
 
-    a_stdev_ = Q;
+    a_stdev_ = acc_var;
     b_stdev_ = 0.0;
 
     xhat_ = x_;
@@ -40,21 +41,22 @@ void Robot1D::add_waypoint(double wp)
     waypoints_.push_back(wp);
 }
 
-double Robot1D::pos_meas(const double& p_stdev)
+double Robot1D::pos_meas(const double& p_var)
 {
-    return x_ + normal_(gen_) * p_stdev;
+    return x_ + normal_(gen_) * sqrt(p_var);
 }
 
 void Robot1D::step(double dt)
 {
-    if (std::abs(x_ - waypoints_[i_]) < 1e-2)
+    if (std::abs(x_ - waypoints_[i_]) < 1e-2 && std::abs(v_) < 1e-1)
         i_ = (i_ + 1) % waypoints_.size();
 
     // propagate dynamics
     double e = waypoints_[i_] - x_;
     if (!std::isfinite(prev_x_))
         prev_x_ = x_;
-    a_ = kp_*e + kd_ * (prev_x_ - x_)/dt;
+    a_ = kp_*e - kd_ * (v_)/dt;
+    a_ = a_ > max_F_ ? max_F_ : a_ < -max_F_ ? -max_F_ : a_;
     x_ += v_ * dt;
     v_ += a_ * dt;
     t_ += dt;

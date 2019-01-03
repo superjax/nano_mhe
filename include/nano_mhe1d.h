@@ -32,7 +32,8 @@ public:
     enum
     {
         NY = 2*(K-1)+K+1, // number of residuals in estimator
-        NX = (K*2)+1 // number of states in estimator
+        NX = (K*2)+1, // number of states in estimator
+        NUM_NODES = K
     };
     typedef Matrix<Scalar, NX, 1> XVec;
     typedef Matrix<Scalar, NY, 1> ZVec;
@@ -42,39 +43,21 @@ public:
     typedef Matrix<Scalar, 2, 1> nVec; // node
     MHE_1D_Base()
     {
-        init((Scalar)0.3, (Scalar)0.1, (Scalar)0.1);
+        reset();
     }
 
-    void init(Scalar acc_var, Scalar pos_var, Scalar vel_var)
+    void reset()
     {
         k_ = -1;
         n_ = -1;
         i_ = -1;
         vk_ = 0;
         X_.setZero();
-        acc_var_ = acc_var;
-        pos_var_ = pos_var;
-        vel_var_ = vel_var;
 
-        // wire up the measurements to constants
-        for (int k = 0; k < K; k++)
-            pos_[k].init(&pos_var_);
         for (int i = 0; i < (K-1); i++)
         {
-            imu_[i].init(X_(2*K), &acc_var_);
             imu_ids_[i].first = imu_ids_[i].second = -1;
         }
-        vel_.init(&vel_var_);
-    }
-
-    void setAccVar(double acc_var)
-    {
-        acc_var_ = acc_var;
-    }
-
-    void setPosVar(double pos_var)
-    {
-        pos_var_ = pos_var;
     }
 
     void setBias(const Scalar& bias)
@@ -121,28 +104,30 @@ public:
 
 
         X_.template segment<2>(2*k_) = xhat;
-        imu_[i_].reset(t);
+        imu_[i_].reset(t, getBias());
         imu_ids_[i_].first = k_;
         imu_ids_[i_].second = -1;
         pos_[k_].active_ = false;
-        vel_.set_meas(X_(2*vk_ +1));
+        vel_.set_meas(X_(2*vk_ +1), vk_ > 0 ? 1e-2 : 1e-8);
         return n_;
     }
 
-    int addPosMeas(int node, const Scalar& y_pos)
+    int addPosMeas(int node, const Scalar& y_pos, const Scalar& var)
     {
         NANO_MHE_ASSERT(node <= n_, "Tried acces a node from the future");
         NANO_MHE_ASSERT(node > n_-K, "Tried acces a node beyond buffer");
         NANO_MHE_ASSERT(std::isfinite(y_pos), "measurements must be finite");
+        NANO_MHE_ASSERT(std::isfinite(var), "measurement variance must be finite");
 
-        pos_[n2k(node)].set_meas(y_pos);
+        pos_[n2k(node)].set_meas(y_pos, var);
     }
 
-    int addImuMeas(const Scalar& t, const Scalar& y_imu)
+    int addImuMeas(const Scalar& t, const Scalar& y_imu, const Scalar& var)
     {
         NANO_MHE_ASSERT(std::isfinite(y_imu), "measurements must be finite");
+        NANO_MHE_ASSERT(std::isfinite(var), "measurement variance must be finite");
 
-        imu_[i_].integrate(t, y_imu);
+        imu_[i_].integrate(t, y_imu, var);
     }
 
     bool evalResiduals()
@@ -214,10 +199,6 @@ public:
     int k_; // current internal state index [0-K]
     int n_; // current node id [0-inf]
     int i_; // current imu id [0-(K-1)]
-
-    double acc_var_; // variance of acceleration
-    double pos_var_; // variance of position
-    double vel_var_; // variance of pinning velocity constraint
 
     nano::levenbergMarquardtParameters<Scalar> params_;
 };

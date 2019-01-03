@@ -20,6 +20,8 @@ include_directories(include
     ${GTEST_INCLUDE_DIRS})
 
 add_library(utils
+    lib/utils/include/utils/robot1d.h
+    lib/utils/include/utils/logger.h
     lib/utils/src/robot1d.cpp)
 
 add_library(nano_mhe

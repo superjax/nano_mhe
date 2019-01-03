@@ -18,13 +18,13 @@ Robot1D::Robot1D(double _ba, double acc_var, double Td) :
     i_ = 0;
     t_ = 0;
     prev_x_ = NAN;
-    kp_ = 0.1;
-    kd_ = 0.01;
-    max_F_ = 0.5;
+    kp_ = 0.3;
+    kd_ = 0.03;
+    max_F_ = 3.0;
     b_ = _ba;
     Td_ = Td;
 
-    a_stdev_ = acc_var;
+    a_stdev_ = sqrt(acc_var);
     b_stdev_ = 0.0;
 
     xhat_ = x_;

@@ -4,6 +4,7 @@
 #include "test_common.h"
 #include "nano_mhe1d.h"
 #include "utils/robot1d.h"
+#include "utils/logger.h"
 
 
 TEST (nano_mhe_1d, init)
@@ -191,74 +192,52 @@ TEST (nano_mhe_1d, full_graph)
 TEST (nano_mhe_1d, Optimize)
 {
     double ba = 0.1;
-    double acc_var = 1e-3;
+    double acc_var = 1e-8;
     double pos_var = 1e-3;
     double vel_var = 1e-5;
     Robot1D Robot(ba, acc_var);
-    Robot.waypoints_ = {0.3, 0, 0.3, 0.1, 0.5, 0.4, 0};
+    Robot.waypoints_ = {1.0, 0, 1.0, 0.3, 1.5, 1.2, 0};
 
     double dt_window = 1.0;
     double dt = 0.01;
     double t_max = 300*dt_window;
 
-    MatrixXd hist;
-
-    enum
-    {
-        T = 0,
-        X = 1,
-        V = 2,
-        XHAT0 = 3,
-        VHAT0 = 4,
-        XHATF = 5,
-        VHATF = 6,
-        B = 7,
-        BHATF = 8,
-        XBAR = 9,
-        NUM_HIST
-    };
-    hist.setZero(t_max/dt_window + 1, NUM_HIST);
-
     MHE_1D<double, 25> mhe;
-    mhe.init(acc_var, pos_var, vel_var);
-    int node = mhe.addNode(Robot.t_, MHE_1D<double, 10>::nVec{Robot.xhat_, Robot.vhat_});
+    Logger<double> hist("../logs/nano_mhe.Optimize.log");
+    Logger<double> path_hist("../logs/nano_mhe.Path.log");
+    int node = mhe.addNode(Robot.t_, Vector2d{Robot.xhat_, Robot.vhat_});
     double xbar = Robot.pos_meas(pos_var);
-    mhe.addPosMeas(node, xbar);
-    hist(node, T) = Robot.t_;
-    hist(node, X) = Robot.x_;
-    hist(node, V) = Robot.v_;
-    hist(node, XHAT0) = Robot.xhat_;
-    hist(node, VHAT0) = Robot.vhat_;
-    hist(node, XHATF) = mhe.x(node)(0);
-    hist(node, VHATF) = mhe.x(node)(1);
-    hist(node, B) = Robot.b_;
-    hist(node, BHATF) = mhe.getBias();
-    hist(node, XBAR) = xbar;
-
+    mhe.addPosMeas(node, xbar, pos_var);
+    hist.log(Robot.t_, Robot.x_, Robot.v_, Robot.xhat_, Robot.vhat_, 
+    	     mhe.x(node)(0), mhe.x(node)(1), Robot.b_, mhe.getBias(), xbar);
     while (Robot.t_ <= t_max)
     {
         Robot.step(dt);
-        mhe.addImuMeas(Robot.t_, Robot.ahat_);
+        mhe.addImuMeas(Robot.t_, Robot.ahat_, acc_var);
         if (fabs(Robot.t_ - (node+1)*dt_window) < dt/2.0)
         {
             node = mhe.addNode(Robot.t_);
             double xbar = Robot.pos_meas(pos_var);
-            mhe.addPosMeas(node, xbar);
+            mhe.addPosMeas(node, xbar, pos_var);
             mhe.optimize();
-            hist(node, T) = Robot.t_;
-            hist(node, X) = Robot.x_;
-            hist(node, V) = Robot.v_;
-            hist(node, XHAT0) = Robot.xhat_;
-            hist(node, VHAT0) = Robot.vhat_;
-            hist(node, XHATF) = mhe.x(node)(0);
-            hist(node, VHATF) = mhe.x(node)(1);
-            hist(node, B) = Robot.b_;
-            hist(node, BHATF) = mhe.getBias();
-            hist(node, XBAR) = xbar;
+
+            // Log everything to the history for plotting
+            hist.log(Robot.t_, Robot.x_, Robot.v_, Robot.xhat_, Robot.vhat_, 
+            	     mhe.x(node)(0), mhe.x(node)(1), Robot.b_, mhe.getBias(), xbar);
+            for (int i = 0; i < mhe.NUM_NODES; i++)
+            {
+                int ni = node - i;
+                if (ni < 0)
+                {
+                    path_hist.log(NAN, NAN, NAN);
+                }
+                else
+                {
+                    path_hist.log(Robot.t_ - i*dt_window, mhe.x(node - i)(0), mhe.x(node - i)(1));
+                }
+            }
+            path_hist.log(NAN, NAN, NAN); // so python will draw a new line for each horizon
         }
     }
-
-    std::ofstream log_file("../logs/nano_mhe.Optimize.log");
-    log_file.write((char*)(hist.data()), sizeof(double) * hist.rows() * hist.cols());
-    log_file.close();
+    // The python file python/nano_mhe_optimize.py will plot the results
 }

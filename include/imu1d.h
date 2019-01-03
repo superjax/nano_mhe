@@ -17,16 +17,11 @@ public:
     Imu1D()
     {
         t0_ = INFINITY;
-        delta_t_ = 0;
+        delta_t_ = 0.0;
+        b_ = 0.0;
         y_.setZero();
         P_.setZero();
         J_.setZero();
-    }
-
-    void init(const T& _b0, T* avar)
-    {
-        b_ = _b0;
-        avar_ = avar;
     }
 
     const T& dp() const
@@ -39,16 +34,17 @@ public:
         return y_(1);
     }
 
-    void reset(T _t0)
+    void reset(T _t0, const T& _b0)
     {
         t0_ = _t0;
+        b_ = _b0;
         delta_t_ = 0;
         y_.setZero();
         P_.setZero();
         J_.setZero();
     }
 
-    void integrate(T _t, T y)
+    void integrate(const T& _t, const T& y, const T& avar)
     {
       assert(_t > t0_ + delta_t_);
       T dt = _t - (t0_ + delta_t_);
@@ -62,7 +58,7 @@ public:
       // Propagate state
       y_ = A*y_ + B*y + C*b_;
 
-      P_ = A*P_*A.transpose() + B*(*avar_)*B.transpose();
+      P_ = A*P_*A.transpose() + B*(avar)*B.transpose();
 
       // propagate Jacobian dy/db
       J_ = A*J_ + C;
@@ -120,7 +116,6 @@ private:
 
     T t0_;
     T b_;
-    T* avar_;
 
     T delta_t_;
     Mat2 P_;

@@ -12,24 +12,20 @@ public:
         y_ = 0.0;
     }
 
-    void init(T* pvar)
-    {
-        var_ = pvar;
-    }
-
-    void set_meas(const T& y)
+    void set_meas(const T& y, const T& pvar)
     {
         y_ = y;
+        stdev_ = sqrt(pvar);
         active_ = true;
     }
 
     template <typename Scalar>
     void operator()(const Scalar* xhat, Scalar* residual) const
     {
-        (*residual) = ((*xhat) - y_)/sqrt(*var_);
+        (*residual) = ((*xhat) - y_)/stdev_;
     }
 
     bool active_ = false;
-    const T* var_;
+    T stdev_;
     T y_;
 };

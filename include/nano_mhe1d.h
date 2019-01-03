@@ -171,7 +171,7 @@ public:
 
         const T* vpin = x.data() + 2*vk_ + 1;
         T* vres = z.data() + 2*(K-1)+K;
-//        vel_(vpin, vres);
+        vel_(vpin, vres);
         return true;
     }
 

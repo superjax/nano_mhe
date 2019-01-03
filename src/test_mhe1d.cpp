@@ -72,7 +72,7 @@ TEST (nano_mhe_1d, single_window_integration)
     while (Robot.t_ <= dt_window)
     {
         Robot.step(dt);
-        mhe.addImuMeas(Robot.t_, Robot.ahat_);
+        mhe.addImuMeas(Robot.t_, Robot.ahat_, Q);
     }
     node = mhe.addNode(Robot.t_);
     ASSERT_NEAR(Robot.x_, mhe.getState(node)(0), 1e-2);
@@ -103,14 +103,14 @@ TEST(nano_mhe_1d, incomplete_residual_init)
 
     MHE_1D<double, 5> mhe;
     int node = mhe.addNode(Robot.t_, MHE_1D<double, 5>::nVec{Robot.x_, Robot.v_});
-    mhe.addPosMeas(node, Robot.pos_meas(sqrt(0.1)));
+    mhe.addPosMeas(node, Robot.pos_meas(0.1), 0.1);
     while (Robot.t_ <= dt_window)
     {
         Robot.step(dt);
-        mhe.addImuMeas(Robot.t_, Robot.ahat_);
+        mhe.addImuMeas(Robot.t_, Robot.ahat_, Q);
     }
     node = mhe.addNode(Robot.t_);
-    mhe.addPosMeas(node, Robot.pos_meas(sqrt(0.1)));
+    mhe.addPosMeas(node, Robot.pos_meas(0.1), 0.1);
 
     mhe.evalResiduals();
     for (int i = 0; i < mhe.Z_.rows(); i++)
@@ -135,16 +135,15 @@ TEST(nano_mhe_1d, incomplete_residual_optimize)
     double dt = 0.01;
 
     MHE_1D<double, 5> mhe;
-    mhe.init(acc_var, pos_var, vel_var);
     int node = mhe.addNode(Robot.t_, MHE_1D<double, 5>::nVec{Robot.x_, Robot.v_});
-    mhe.addPosMeas(node, Robot.pos_meas(pos_var));
+    mhe.addPosMeas(node, Robot.pos_meas(pos_var), pos_var);
     while (Robot.t_ <= dt_window)
     {
         Robot.step(dt);
-        mhe.addImuMeas(Robot.t_, Robot.ahat_);
+        mhe.addImuMeas(Robot.t_, Robot.ahat_, acc_var);
     }
     node = mhe.addNode(Robot.t_);
-    mhe.addPosMeas(node, Robot.pos_meas(pos_var));
+    mhe.addPosMeas(node, Robot.pos_meas(pos_var), pos_var);
     mhe.optimize();
     mhe.evalResiduals();
 
@@ -167,15 +166,15 @@ TEST (nano_mhe_1d, full_graph)
 
     MHE_1D<double, 5> mhe;
     int node = mhe.addNode(Robot.t_, MHE_1D<double, 5>::nVec{Robot.xhat_, Robot.vhat_});
-    mhe.addPosMeas(node, Robot.pos_meas(sqrt(0.1)));
+    mhe.addPosMeas(node, Robot.pos_meas(0.1), 0.1);
     while (Robot.t_ <= t_max)
     {
         Robot.step(dt);
-        mhe.addImuMeas(Robot.t_, Robot.ahat_);
+        mhe.addImuMeas(Robot.t_, Robot.ahat_, Q);
         if (fabs(Robot.t_ - (node+1)*dt_window) < dt/2.0)
         {
             node = mhe.addNode(Robot.t_);
-            mhe.addPosMeas(node, Robot.pos_meas(sqrt(0.1)));
+            mhe.addPosMeas(node, Robot.pos_meas(0.1), 0.1);
         }
     }
 

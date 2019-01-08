@@ -4,4 +4,4 @@ Eigen::MatrixXd calc_jac(std::function<Eigen::MatrixXd(const Eigen::MatrixXd &)>
                          std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxminus=nullptr,
                          std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxplus=nullptr,
                          std::function<Eigen::MatrixXd(const Eigen::MatrixXd &, const Eigen::MatrixXd &)> f_boxminus2=nullptr,
-                         std::function<Eigen::MatrixXd(const Eigen::MatrixXd &, const Eigen::MatrixXd &)> f_boxplus2=nullptr);
+                         std::function<Eigen::MatrixXd(const Eigen::MatrixXd &, const Eigen::MatrixXd &)> f_boxplus2=nullptr, double step_size=1e-8);

@@ -7,8 +7,6 @@
 
 #include "test_common.h"
 
-using namespace quat;
-
 TEST (CostFunctorAutoDiff, CompileNormalVecs)
 {
     typedef Matrix<double, 2, 1> OT;
@@ -192,8 +190,8 @@ struct QuatPlus
         typedef typename Derived1::Scalar T;
         typedef Matrix<T, 4, 1> Vec4;
         typedef Matrix<T, 3, 1> Vec3;
-        Quat<T> qp(_qp);
-        Quat<T> q(_q);
+        quat::Quat<T> qp(_qp);
+        quat::Quat<T> q(_q);
         Vec4 qpdebug= _qp;
         Vec4 qdebug= _q;
         Vec3 ddebug = delta;
@@ -206,9 +204,9 @@ typedef CostFunctorAutoDiff<double, QuatPlus, 4, 4, 3> QuatParam;
 
 TEST (Autodiff, Quaternion)
 {
-    Quatd q1 = Quatd::from_euler(10.0*M_PI/180.0, -45.0*M_PI/180.0, 20.0*M_PI/180.0);
+    quat::Quatd q1 = quat::Quatd::from_euler(10.0*M_PI/180.0, -45.0*M_PI/180.0, 20.0*M_PI/180.0);
     Vector3d delta = (Vector3d() << 0.01, 0.02, -0.01).finished();
-    Quatd qp;
+    quat::Quatd qp;
     Matrix<double, 4, 4> dqp_dq1;
     Matrix<double, 4, 3> dqp_ddelta;
 

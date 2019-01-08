@@ -7,7 +7,7 @@
 #include "utils/logger.h"
 
 
-TEST (nano_mhe_1d, init)
+TEST (nano_mhe_1d, compile)
 {
     MHE_1D<double, 5> mhe;
 }

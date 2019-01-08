@@ -5,7 +5,8 @@ Eigen::MatrixXd calc_jac(std::function<Eigen::MatrixXd(const Eigen::MatrixXd&)> 
                          std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxminus,
                          std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxplus,
                          std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxminus2,
-                         std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxplus2)
+                         std::function<Eigen::MatrixXd(const Eigen::MatrixXd&, const Eigen::MatrixXd&)>f_boxplus2,
+                         double step_size)
 {
   if (f_boxminus == nullptr)
   {
@@ -48,7 +49,7 @@ Eigen::MatrixXd calc_jac(std::function<Eigen::MatrixXd(const Eigen::MatrixXd&)> 
   I.resize(cols, cols);
   I.setZero(cols, cols);
   for (int i = 0; i < cols; i++)
-    I(i,i) = 1e-8;
+    I(i,i) = step_size;
 
   Eigen::MatrixXd JFD;
   JFD.setZero(rows, cols);
@@ -61,7 +62,7 @@ Eigen::MatrixXd calc_jac(std::function<Eigen::MatrixXd(const Eigen::MatrixXd&)> 
     Eigen::MatrixXd ym = fun(xm);
     Eigen::MatrixXd dy = f_boxminus2(yp,ym);
 
-    JFD.col(i) = dy/(2*1e-8);
+    JFD.col(i) = dy/(2*step_size);
   }
   return JFD;
 }

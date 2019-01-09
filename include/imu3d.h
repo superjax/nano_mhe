@@ -63,7 +63,7 @@ public:
         J_.setZero();
     }
 
-    void errorStateDynamics(const Vec10& y, const Vec9& dy, const Vec6& u, Vec9& ydot)
+    void errorStateDynamics(const Vec10& y, const Vec9& dy, const Vec6& u, const Vec6& eta, Vec9& dydot)
     {
         auto dalpha = dy.template segment<3>(ALPHA);
         auto dbeta = dy.template segment<3>(BETA);
@@ -74,13 +74,20 @@ public:
         auto bw = b_.template segment<3>(OMEGA);
         auto dgamma = dy.template segment<3>(GAMMA);
 
-        ydot.template segment<3>(ALPHA) = dbeta;
-        ydot.template segment<3>(BETA) = -gamma.rota(skew(a - ba)*dgamma);
-        ydot.template segment<3>(GAMMA) = -skew(w - bw)*dgamma;
+        auto eta_a = eta.template segment<3>(ACC);
+        auto eta_w = eta.template segment<3>(OMEGA);
+
+        dydot.template segment<3>(ALPHA) = dbeta;
+        dydot.template segment<3>(BETA) = -gamma.rota(skew(a - ba)*dgamma) - gamma.rota(eta_a);
+        dydot.template segment<3>(GAMMA) = -skew(w - bw)*dgamma - eta_w;
     }
 
 
-    void dynamics(const Vec10& y, const Vec6& u, Vec9& ydot, Mat9& A, Mat96&B, Mat96& C)
+    // ydot = f(y, u) <-- nonlinear dynamics (reference state)
+    // A = d(dydot)/d(dy) <-- error state
+    // B = d(dydot)/d(eta) <-- error state
+    // Because of the error state, ydot != Ay+Bu
+    void dynamics(const Vec10& y, const Vec6& u, Vec9& ydot, Mat9& A, Mat96&B)
     {
         auto alpha = y.template segment<3>(ALPHA);
         auto beta = y.template segment<3>(BETA);
@@ -97,13 +104,11 @@ public:
         A.setZero();
         A.template block<3,3>(ALPHA, BETA) = I_3x3;
         A.template block<3,3>(BETA, GAMMA) = -gamma.R().transpose() * skew(a - ba);
-        A.template block<3,3>(GAMMA, GAMMA) = -skew(bw-w);
+        A.template block<3,3>(GAMMA, GAMMA) = skew(bw-w);
 
         B.setZero();
-        B.template block<3,3>(BETA, ACC) = gamma.R().transpose();
-        B.template block<3,3>(GAMMA, OMEGA) = I_3x3;
-
-        C = -B;
+        B.template block<3,3>(BETA, ACC) = -gamma.R().transpose();
+        B.template block<3,3>(GAMMA, OMEGA) = -I_3x3;
     }
 
 
@@ -132,16 +137,15 @@ public:
         Mat9 A;
         Mat96 B, C;
         Vec10 yp;
-        dynamics(y_, u, ydot, A, B, C);
+        dynamics(y_, u, ydot, A, B);
         boxplus(y_, ydot * dt, yp);
         y_ = yp;
 
         A = Mat9::Identity() + A*dt + 1/2.0 * A*A*dt*dt;
         B = B*dt;
-        C = C*dt;
 
         P_ = A*P_*A.transpose() + B*cov*B.transpose();
-        J_ = A*J_ + C;
+        J_ = A*J_;
 
         NANO_IMU_ASSERT((P_.array() == P_.array()).all(), "NaN detected in covariance on propagation");
     }

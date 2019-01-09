@@ -62,8 +62,9 @@ TEST(Imu3D, CheckErrorStateDynamics)
     IMU::boxplus(yhat.y_, dy, y_check);
     ASSERT_MAT_NEAR(y.y_, y_check, 1e-8);
 
-    Vector6d u;
+    Vector6d u, eta;
     u.setZero();
+    eta.setZero();
 
     std::default_random_engine gen;
     std::normal_distribution<double> normal;
@@ -79,7 +80,7 @@ TEST(Imu3D, CheckErrorStateDynamics)
     {
         u += dt * normalRandomVector<Vector6d>(normal, gen);
         t += dt;
-        y.errorStateDynamics(y.y_, dy, u, dydot);
+        y.errorStateDynamics(y.y_, dy, u, eta, dydot);
         dy += dydot * dt;
 
         y.integrate(t, u, cov);
@@ -99,11 +100,12 @@ TEST(Imu3D, CheckDynamicsJacobians)
     Vector6d b0;
     Vector10d y0;
     Vector6d u0;
+    Vector6d eta0;
     Vector9d ydot;
+    Vector9d dy0;
 
     Matrix9d A;
     Eigen::Matrix<double, 9, 6> B;
-    Eigen::Matrix<double, 9, 6> C;
 
     for (int i = 0; i < 100; i++)
     {
@@ -111,44 +113,40 @@ TEST(Imu3D, CheckDynamicsJacobians)
         y0.setRandom();
         y0.segment<4>(6) = Quatd::Random().elements();
         u0.setRandom();
-        Imu3D<double> f;
-        f.reset(0, b0);
-        f.dynamics(y0, u0, ydot, A, B, C);
-        Vector9d dy0;
+
+        eta0.setZero();
         dy0.setZero();
 
-        auto yfun = [&y0, &cov, &b0, &u0](const Vector9d& dy)
+        Imu3D<double> f;
+        f.reset(0, b0);
+        f.dynamics(y0, u0, ydot, A, B);
+        Vector9d dy0;
+
+        auto yfun = [&y0, &cov, &b0, &u0, &eta0](const Vector9d& dy)
         {
             Imu3D<double> f;
             f.reset(0, b0);
             Vector9d dydot;
-            f.errorStateDynamics(y0, dy, u0, dydot);
+            f.errorStateDynamics(y0, dy, u0, eta0, dydot);
             return dydot;
         };
-        auto bfun = [&y0, &cov, &dy0, &u0](const Vector6d& b)
-        {
-            Imu3D<double> f;
-            f.reset(0, b);
-            Vector9d dydot;
-            f.errorStateDynamics(y0, dy0, u0, dydot);
-            return dydot;
-        };
-        auto ufun = [&y0, &cov, &b0, &dy0](const Vector6d& u)
+        auto etafun = [&y0, &cov, &b0, &dy0, &u0](const Vector6d& eta)
         {
             Imu3D<double> f;
             f.reset(0, b0);
             Vector9d dydot;
-            f.errorStateDynamics(y0, dy0, u, dydot);
+            f.errorStateDynamics(y0, dy0, u0, eta, dydot);
             return dydot;
         };
 
-        Matrix9d AFD = calc_jac(yfun, y0, boxminus, boxplus);
-        Eigen::Matrix<double, 9, 6> BFD = calc_jac(ufun, u0);
-        Eigen::Matrix<double, 9, 6> CFD = calc_jac(bfun, b0);
+        Matrix9d AFD = calc_jac(yfun, dy0);
+        Eigen::Matrix<double, 9, 6> BFD = calc_jac(etafun, u0);
+
+        cout << "A\n" << A << "\nAFD\n" << AFD << "\n\n";
+        cout << "B\n" << B << "\nBFD\n" << BFD << "\n\n";
 
         ASSERT_MAT_NEAR(AFD, A, 1e-7);
         ASSERT_MAT_NEAR(BFD, B, 1e-7);
-        ASSERT_MAT_NEAR(CFD, C, 1e-7);
     }
 }
 

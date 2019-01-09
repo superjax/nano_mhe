@@ -23,23 +23,14 @@ TEST(Imu3D, reset)
 }
 
 
-Vector10d boxplus(const Vector10d& y, const Vector9d& dy)
-{
-    Vector10d yp;
-    yp.block<3,1>(0,0) = y.block<3,1>(0,0) + dy.block<3,1>(0,0);
-    yp.block<3,1>(3,0) = y.block<3,1>(3,0) + dy.block<3,1>(3,0);
-    yp.block<4,1>(6,0) = (Quatd(y.block<4,1>(6,0)) + dy.block<3,1>(6,0)).elements();
-    return yp;
-}
-
-Vector9d boxminus(const Vector10d& y1, const Vector10d& y2)
-{
-    Vector9d out;
-    out.block<3,1>(0,0) = y1.block<3,1>(0,0) - y2.block<3,1>(0,0);
-    out.block<3,1>(3,0) = y1.block<3,1>(3,0) - y2.block<3,1>(3,0);
-    out.block<3,1>(6,0) = Quatd(y1.block<4,1>(6,0)) - Quatd(y2.block<4,1>(6,0));
-    return out;
-}
+//Vector9d boxminus(const Vector10d& y1, const Vector10d& y2)
+//{
+//    Vector9d out;
+//    out.block<3,1>(0,0) = y1.block<3,1>(0,0) - y2.block<3,1>(0,0);
+//    out.block<3,1>(3,0) = y1.block<3,1>(3,0) - y2.block<3,1>(3,0);
+//    out.block<3,1>(6,0) = Quatd(y1.block<4,1>(6,0)) - Quatd(y2.block<4,1>(6,0));
+//    return out;
+//}
 
 TEST(Imu3D, CheckErrorStateDynamics)
 {
@@ -156,8 +147,9 @@ TEST(Imu3D, CheckBiasJacobians)
     multirotor.load("../lib/multirotor_sim/params/sim_params.yaml");
     std::vector<Vector6d,Eigen::aligned_allocator<Vector6d>> meas;
     std::vector<double> t;
+    multirotor.dt_ = 0.001;
 
-    while (multirotor.t_ < 1.0)
+    while (multirotor.t_ < 0.1)
     {
         multirotor.run();
         meas.push_back(multirotor.get_imu_prev());
@@ -188,9 +180,16 @@ TEST(Imu3D, CheckBiasJacobians)
         }
         return f.y_;
     };
-    JFD = calc_jac(fun, b0, nullptr, nullptr, boxminus, 1e-5);
+    auto bm = [](const MatrixXd& x1, const MatrixXd& x2)
+    {
+        Matrix<double, 9, 1> dx;
+        Imu3D<double>::boxminus(x1, x2, dx);
+        return dx;
+    };
+
+    JFD = calc_jac(fun, b0, nullptr, nullptr, bm, 1e-5);
 //    std::cout << "FD:\n" << JFD << "\nA:\n" << J <<std::endl;
-    ASSERT_MAT_NEAR(J, JFD, 1e-2);
+    ASSERT_MAT_NEAR(J, JFD, 1e-4);
 }
 
 

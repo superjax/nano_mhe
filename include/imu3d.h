@@ -135,7 +135,7 @@ public:
         delta_t_ = _t - t0_;
         Vec9 ydot;
         Mat9 A;
-        Mat96 B, C;
+        Mat96 B;
         Vec10 yp;
         dynamics(y_, u, ydot, A, B);
         boxplus(y_, ydot * dt, yp);
@@ -145,7 +145,7 @@ public:
         B = B*dt;
 
         P_ = A*P_*A.transpose() + B*cov*B.transpose();
-        J_ = A*J_;// + B;
+        J_ = A*J_ + B;
 
         NANO_IMU_ASSERT((P_.array() == P_.array()).all(), "NaN detected in covariance on propagation");
     }

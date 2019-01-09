@@ -63,6 +63,22 @@ public:
         J_.setZero();
     }
 
+    void errorStateDynamics(const Vec10& y, const Vec9& dy, const Vec6& u, Vec9& ydot)
+    {
+        auto dalpha = dy.template segment<3>(ALPHA);
+        auto dbeta = dy.template segment<3>(BETA);
+        QuatT gamma(y.data()+GAMMA);
+        auto a = u.template segment<3>(ACC);
+        auto w = u.template segment<3>(OMEGA);
+        auto ba = b_.template segment<3>(ACC);
+        auto bw = b_.template segment<3>(OMEGA);
+        auto dgamma = dy.template segment<3>(GAMMA);
+
+        ydot.template segment<3>(ALPHA) = dbeta;
+        ydot.template segment<3>(BETA) = -gamma.rota(skew(a - ba)*dgamma);
+        ydot.template segment<3>(GAMMA) = -skew(w - bw)*dgamma;
+    }
+
 
     void dynamics(const Vec10& y, const Vec6& u, Vec9& ydot, Mat9& A, Mat96&B, Mat96& C)
     {
@@ -74,8 +90,6 @@ public:
         auto ba = b_.template segment<3>(ACC);
         auto bw = b_.template segment<3>(OMEGA);
 
-        // ydot = Ay + Bu + Cb
-
         ydot.template segment<3>(ALPHA) = beta;
         ydot.template segment<3>(BETA) = gamma.rota(a - ba);
         ydot.template segment<3>(GAMMA) = w - bw;
@@ -83,7 +97,7 @@ public:
         A.setZero();
         A.template block<3,3>(ALPHA, BETA) = I_3x3;
         A.template block<3,3>(BETA, GAMMA) = -gamma.R().transpose() * skew(a - ba);
-//        A.template block<3,3>(GAMMA, GAMMA) = skew(bw-w);
+        A.template block<3,3>(GAMMA, GAMMA) = -skew(bw-w);
 
         B.setZero();
         B.template block<3,3>(BETA, ACC) = gamma.R().transpose();
@@ -97,8 +111,7 @@ public:
     {
         yp.template segment<3>(P) = y.template segment<3>(P) + dy.template segment<3>(P);
         yp.template segment<3>(V) = y.template segment<3>(V) + dy.template segment<3>(V);
-        QuatT gamma(y.template segment<4>(Q));
-        yp.template segment<4>(Q) = (gamma + dy.template segment<3>(Q)).elements();
+        yp.template segment<4>(Q) = (QuatT(y.template segment<4>(Q)) + dy.template segment<3>(Q)).elements();
     }
 
 
@@ -134,7 +147,7 @@ public:
     }
 
 
-    void estimate_xj(const Scalar* _xi, const Scalar* _vi, Scalar* _xj, Scalar* _vj) const
+    void estimateXj(const Scalar* _xi, const Scalar* _vi, Scalar* _xj, Scalar* _vj) const
     {
         auto alpha = y_.template segment<3>(ALPHA);
         auto beta = y_.template segment<3>(BETA);

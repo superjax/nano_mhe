@@ -41,18 +41,21 @@ Vector9d boxminus(const Vector10d& y1, const Vector10d& y2)
     return out;
 }
 
-TEST(Imu3D, CheckDynamics)
+TEST(Imu3D, CheckErrorStateDynamics)
 {
     typedef Imu3D<double> IMU;
     IMU y;
+    IMU yhat;
     Vector9d dy;
     double t = 0;
+    const double Tmax = 10.0;
+    static const double dt = 0.001;
 
     Vector6d bias;
     bias.setZero();
     y.reset(t, bias);
     yhat.reset(t, bias);
-    IMU::boxplus(y.y_, Vector9d::Constant(0.001), yhat.y_);
+    IMU::boxplus(y.y_, Vector9d::Constant(0.01), yhat.y_);
     IMU::boxminus(y.y_, yhat.y_, dy);
 
     Vector10d y_check;
@@ -67,19 +70,16 @@ TEST(Imu3D, CheckDynamics)
 
     Logger<double> log("../logs/Imu3d.CheckDynamics.log");
 
-    static const double dt = 0.001;
+
     Matrix6d cov = Matrix6d::Identity() * 1e-3;
     Vector9d dydot;
-    Matrix<double, 9, 9> A;
-    Matrix<double, 9, 6> B, C;
     log.log(t);
     log.logVectors(y.y_, yhat.y_, dy, y_check, u);
-    for (int i = 0; i < 1.0/dt; i++)
+    for (int i = 0; i < Tmax/dt; i++)
     {
         u += dt * normalRandomVector<Vector6d>(normal, gen);
-        u.segment<3>(IMU::OMEGA).setZero();
         t += dt;
-        y.dynamics(y.y_, u, dydot, A, B, C);
+        y.errorStateDynamics(y.y_, dy, u, dydot);
         dy += dydot * dt;
 
         y.integrate(t, u, cov);
@@ -87,6 +87,7 @@ TEST(Imu3D, CheckDynamics)
         IMU::boxplus(yhat.y_, dy, y_check);
         log.log(t);
         log.logVectors(y.y_, yhat.y_, dy, y_check, u);
+        ASSERT_MAT_NEAR(y.y_, y_check, t > 0.3 ? 5e-6*t*t : 2e-7);
     }
 }
 
@@ -113,39 +114,32 @@ TEST(Imu3D, CheckDynamicsJacobians)
         Imu3D<double> f;
         f.reset(0, b0);
         f.dynamics(y0, u0, ydot, A, B, C);
+        Vector9d dy0;
+        dy0.setZero();
 
-        auto yfun = [&cov, &b0, &u0](const Vector10d& y)
+        auto yfun = [&y0, &cov, &b0, &u0](const Vector9d& dy)
         {
             Imu3D<double> f;
             f.reset(0, b0);
-            Vector9d ydot;
-            Matrix9d A;
-            Eigen::Matrix<double, 9, 6> B;
-            Eigen::Matrix<double, 9, 6> C;
-            f.dynamics(y, u0, ydot, A, B, C);
-            return ydot;
+            Vector9d dydot;
+            f.errorStateDynamics(y0, dy, u0, dydot);
+            return dydot;
         };
-        auto bfun = [&cov, &y0, &u0](const Vector6d& b)
+        auto bfun = [&y0, &cov, &dy0, &u0](const Vector6d& b)
         {
             Imu3D<double> f;
             f.reset(0, b);
-            Vector9d ydot;
-            Matrix9d A;
-            Eigen::Matrix<double, 9, 6> B;
-            Eigen::Matrix<double, 9, 6> C;
-            f.dynamics(y0, u0, ydot, A, B, C);
-            return ydot;
+            Vector9d dydot;
+            f.errorStateDynamics(y0, dy0, u0, dydot);
+            return dydot;
         };
-        auto ufun = [&cov, &b0, &y0](const Vector6d& u)
+        auto ufun = [&y0, &cov, &b0, &dy0](const Vector6d& u)
         {
             Imu3D<double> f;
             f.reset(0, b0);
-            Vector9d ydot;
-            Matrix9d A;
-            Eigen::Matrix<double, 9, 6> B;
-            Eigen::Matrix<double, 9, 6> C;
-            f.dynamics(y0, u, ydot, A, B, C);
-            return ydot;
+            Vector9d dydot;
+            f.errorStateDynamics(y0, dy0, u, dydot);
+            return dydot;
         };
 
         Matrix9d AFD = calc_jac(yfun, y0, boxminus, boxplus);
@@ -196,7 +190,7 @@ TEST(Imu3D, CheckBiasJacobians)
         }
         return f.y_;
     };
-    JFD = calc_jac(fun, b0, nullptr, nullptr, boxminus, nullptr, 1e-5);
+    JFD = calc_jac(fun, b0, nullptr, nullptr, boxminus, 1e-5);
 //    std::cout << "FD:\n" << JFD << std::endl;
 //    std::cout << "A:\n" << J << std::endl;
     ASSERT_MAT_NEAR(J, JFD, 1e-2);

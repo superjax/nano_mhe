@@ -88,7 +88,7 @@ public:
 
     int addNode(const Scalar& t)
     {
-        return addNode(t, imu_[i_].estimate_xj(X_.template segment<NSZ>(NSZ*k_)));
+        return addNode(t, imu_[i_].estimateXj(X_.template segment<NSZ>(NSZ*k_)));
     }
 
     int addNode(const Scalar& t, const nVec& xhat)

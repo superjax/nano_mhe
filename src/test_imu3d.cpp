@@ -142,8 +142,8 @@ TEST(Imu3D, CheckDynamicsJacobians)
         Matrix9d AFD = calc_jac(yfun, dy0);
         Eigen::Matrix<double, 9, 6> BFD = calc_jac(etafun, u0);
 
-        cout << "A\n" << A << "\nAFD\n" << AFD << "\n\n";
-        cout << "B\n" << B << "\nBFD\n" << BFD << "\n\n";
+//        cout << "A\n" << A << "\nAFD\n" << AFD << "\n\n";
+//        cout << "B\n" << B << "\nBFD\n" << BFD << "\n\n";
 
         ASSERT_MAT_NEAR(AFD, A, 1e-7);
         ASSERT_MAT_NEAR(BFD, B, 1e-7);
@@ -189,8 +189,7 @@ TEST(Imu3D, CheckBiasJacobians)
         return f.y_;
     };
     JFD = calc_jac(fun, b0, nullptr, nullptr, boxminus, 1e-5);
-//    std::cout << "FD:\n" << JFD << std::endl;
-//    std::cout << "A:\n" << J << std::endl;
+//    std::cout << "FD:\n" << JFD << "\nA:\n" << J <<std::endl;
     ASSERT_MAT_NEAR(J, JFD, 1e-2);
 }
 

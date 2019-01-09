@@ -145,7 +145,7 @@ public:
         B = B*dt;
 
         P_ = A*P_*A.transpose() + B*cov*B.transpose();
-        J_ = A*J_;
+        J_ = A*J_;// + B;
 
         NANO_IMU_ASSERT((P_.array() == P_.array()).all(), "NaN detected in covariance on propagation");
     }

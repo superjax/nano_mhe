@@ -3,6 +3,9 @@
 #include <Eigen/Core>
 #include <unsupported/Eigen/LevenbergMarquardt>
 
+#include <geometry/quat.h>
+#include <geometry/support.h>
+
 #include "test_common.h"
 #include "nano_ad.h"
 #include "nano_lm.h"
@@ -106,7 +109,6 @@ public:
     }
 };
 typedef CostFunctorAutoDiff<double, lmFunc, 15, 3> lmFuncAD;
-
 
 struct lmAutoDiff : public DenseFunctor<double>
 {
@@ -235,9 +237,39 @@ TEST (nanoLM, Minimize)
 
     ASSERT_EQ(info, 1);
     ASSERT_EQ(lm.nfev_, 6);
-    ASSERT_EQ(lm.njev_, 5);
+
 
     Matrix<double, 3, 1> x_ref;
     x_ref << 0.08241058, 1.133037, 2.343695;
     ASSERT_MAT_NEAR(x, x_ref, 1e-6);
+}
+
+template <typename Scalar>
+struct rotFunc
+{
+    rotFunc()
+    {
+        target_ = quat::Quat<Scalar>::Random();
+    }
+
+    template<typename D1, typename D2>
+    bool f(D1 &y, const D2 &x) const
+    {
+        y = e_z - target_.rotp(x);
+    }
+    quat::Quat<Scalar> target_;
+};
+
+template <typename T>
+bool QPlus(const T* x, const T* dx, T* xp)
+{
+    quat::Quat<T> q(x);
+    quat::Quat<T> qp(xp);
+    qp = q + Map<const Matrix<T, 3, 1>>(dx);
+}
+
+
+TEST (nanoLM, LocalParameterization)
+{
+
 }

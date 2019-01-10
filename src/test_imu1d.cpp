@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "test_common.h"
-#include "nano_mhe1d.h"
+#include "factors_1d/imu1d.h"
 #include "utils/robot1d.h"
 
 TEST(Imu1D, compile)

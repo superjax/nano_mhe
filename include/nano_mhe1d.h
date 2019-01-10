@@ -2,9 +2,9 @@
 
 #include <Eigen/Core>
 
-#include "imu1d.h"
-#include "pos1d.h"
-#include "vel1d.h"
+#include "factors_1d/imu1d.h"
+#include "factors_1d/pos1d.h"
+#include "factors_1d/vel1d.h"
 
 #include "nano_lm.h"
 

@@ -2,9 +2,9 @@
 
 #include <Eigen/Core>
 
-#include "imu3d.h"
-#include "pos3d.h"
-#include "vel3d.h"
+#include "factors/imu3d.h"
+#include "factors/pos3d.h"
+#include "factors/vel3d.h"
 
 #include "nano_lm.h"
 

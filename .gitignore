@@ -3,3 +3,4 @@ build/*
 *.autosave
 logs/*
 python/.idea/*
+*.pyc

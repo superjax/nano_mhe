@@ -38,7 +38,6 @@ constexpr int arrEq(const int* arr1, const int arr2, const int size)
     return size == 0 ? true : ((*arr1) == arr2) && (arrEq(arr1+1, arr2, size-1));
 }
 
-
 template <typename Scalar, typename Functor, int NO, int... NIs>
 class CostFunctorAutoDiff : public Functor
 {

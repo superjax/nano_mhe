@@ -76,7 +76,7 @@ public:
     int minimizeInit(xVec& x)
     {
 
-        if (f_.Evaluate(y_, x))
+        if (f_.Evaluate(y_, x, jac_))
         {
             ynorm_ = y_.stableNorm();
         }
@@ -101,8 +101,6 @@ public:
         temp = 0.0;
         xnorm = 0.0;
 
-        f_.Evaluate(y_, x, jac_);
-        njev_++;
         for (int j = 0; j < NI; j++)
             wa2_(j) = jac_.col(j).blueNorm();
         QRSolver_.compute(jac_);
@@ -167,7 +165,7 @@ public:
                 delta_ = std::min(delta_, pnorm);
 
             /* evaluate the function at x + p and calculate its norm. */
-            if ( f_.Evaluate(wa4_, wa2_) < 0)
+            if ( f_.Evaluate(wa4_, wa2_, jac_) < 0)
                 return UserAsked;
             ++nfev_;
             fnorm1 = wa4_.stableNorm();
@@ -510,6 +508,7 @@ public:
     const levenbergMarquardtParameters<Scalar>& params_;
     ColPivHouseholderQR<jMat> QRSolver_;
     Eigen::PermutationMatrix<NI> jacP_;
+    std::function<bool(const Scalar*, const Scalar*, Scalar*)> boxplus_ = NULL;  // function pointer to boxplus operator (x = x [+] dx)
 };
 
 }

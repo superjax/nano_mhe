@@ -1,18 +1,18 @@
 #include <gtest/gtest.h>
 
-#include "test_common.h"
 #include "utils/jac.h"
 #include "utils/logger.h"
 #include "multirotor_sim/simulator.h"
 #include "multirotor_sim/dynamics.h"
-#include "imu3d.h"
 #include "geometry/support.h"
+
+#include "test_common.h"
+#include "factors/imu3d.h"
 
 TEST(Imu3D, compile)
 {
     Imu3D<double> imu;
 }
-
 
 TEST(Imu3D, reset)
 {
@@ -22,7 +22,7 @@ TEST(Imu3D, reset)
     imu.reset(0, b0);
 }
 
-TEST(Imu3D, CheckPropagation)
+TEST(Imu3D, Propagation)
 {
     Simulator multirotor(false);
     multirotor.load("../lib/multirotor_sim/params/sim_params.yaml");
@@ -69,7 +69,7 @@ TEST(Imu3D, CheckPropagation)
     }
 }
 
-TEST(Imu3D, CheckErrorStateDynamics)
+TEST(Imu3D, ErrorStateDynamics)
 {
     typedef Imu3D<double> IMU;
     IMU y;
@@ -121,7 +121,7 @@ TEST(Imu3D, CheckErrorStateDynamics)
 }
 
 
-TEST(Imu3D, CheckDynamicsJacobians)
+TEST(Imu3D, DynamicsJacobians)
 {
     Matrix6d cov = Matrix6d::Identity()*1e-3;
 
@@ -178,7 +178,7 @@ TEST(Imu3D, CheckDynamicsJacobians)
     }
 }
 
-TEST(Imu3D, CheckBiasJacobians)
+TEST(Imu3D, BiasJacobians)
 {
     Simulator multirotor(false);
     multirotor.load("../lib/multirotor_sim/params/sim_params.yaml");

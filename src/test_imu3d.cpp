@@ -22,15 +22,52 @@ TEST(Imu3D, reset)
     imu.reset(0, b0);
 }
 
+TEST(Imu3D, CheckPropagation)
+{
+    Simulator multirotor(false);
+    multirotor.load("../lib/multirotor_sim/params/sim_params.yaml");
 
-//Vector9d boxminus(const Vector10d& y1, const Vector10d& y2)
-//{
-//    Vector9d out;
-//    out.block<3,1>(0,0) = y1.block<3,1>(0,0) - y2.block<3,1>(0,0);
-//    out.block<3,1>(3,0) = y1.block<3,1>(3,0) - y2.block<3,1>(3,0);
-//    out.block<3,1>(6,0) = Quatd(y1.block<4,1>(6,0)) - Quatd(y2.block<4,1>(6,0));
-//    return out;
-//}
+
+    typedef Imu3D<double> IMU;
+    IMU imu;
+    Vector6d b0;
+    b0.setZero();
+    Matrix6d cov = Matrix6d::Identity() * 1e-3;
+
+    multirotor.run();
+    imu.reset(multirotor.t_, b0);
+    Xformd x0 = multirotor.get_pose();
+    Vector3d v0 = multirotor.get_vel();
+
+    Logger<double> log("../logs/Imu3D.CheckPropagation.log");
+
+    Xformd xhat = multirotor.get_pose();
+    Vector3d vhat = multirotor.get_vel();
+    log.log(multirotor.t_);
+    log.logVectors(xhat.elements(), vhat, multirotor.get_pose().elements(), multirotor.get_vel(), multirotor.get_true_imu());
+
+    double next_reset = 1.0;
+    multirotor.tmax_ = 10.0;
+    while (multirotor.run())
+    {
+        imu.integrate(multirotor.t_, multirotor.get_true_imu(), cov);
+
+        if (std::abs(multirotor.t_ - next_reset) <= multirotor.dt_ /2.0)
+        {
+            imu.reset(multirotor.t_, b0);
+            x0 = multirotor.get_pose();
+            v0 = multirotor.get_vel();
+            next_reset += 1.0;
+        }
+
+        imu.estimateXj(x0.data(), v0.data(), xhat.data(), vhat.data());
+        log.log(multirotor.t_);
+        log.logVectors(xhat.elements(), vhat, multirotor.get_pose().elements(), multirotor.get_vel(), multirotor.get_true_imu());
+        ASSERT_MAT_NEAR(xhat.t(), multirotor.get_pose().t(), 0.007);
+        ASSERT_QUAT_NEAR(xhat.q(), multirotor.get_pose().q(), 0.0016);
+        ASSERT_MAT_NEAR(vhat, multirotor.get_vel(), 0.011);
+    }
+}
 
 TEST(Imu3D, CheckErrorStateDynamics)
 {
@@ -152,7 +189,7 @@ TEST(Imu3D, CheckBiasJacobians)
     while (multirotor.t_ < 0.1)
     {
         multirotor.run();
-        meas.push_back(multirotor.get_imu_prev());
+        meas.push_back(multirotor.get_true_imu());
         t.push_back(multirotor.t_);
     }
 

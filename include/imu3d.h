@@ -161,7 +161,7 @@ public:
         Map<const Vec3> vi(_vi);
         Map<Vec3> vj(_vj);
 
-        xj.t_ = xi.t_ + xi.q_.rota(vi*delta_t_) + 1/2.0 * gravity_*delta_t_*delta_t_ + xi.q_.rotp(alpha);
+        xj.t_ = xi.t_ + xi.q_.rota(vi*delta_t_) + 1/2.0 * gravity_*delta_t_*delta_t_ + xi.q_.rota(alpha);
         vj = gamma.rotp(vi + xi.q_.rotp(gravity_)*delta_t_ + beta);
         xj.q_ = xi.q_ * gamma;
     }

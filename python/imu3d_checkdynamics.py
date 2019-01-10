@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.linalg import norm
 
 np.set_printoptions(linewidth=150)
 plt.rc('text', usetex=True)

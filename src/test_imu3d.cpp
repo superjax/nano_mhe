@@ -106,7 +106,7 @@ TEST(Imu3D, CheckErrorStateDynamics)
     log.logVectors(y.y_, yhat.y_, dy, y_check, u);
     for (int i = 0; i < Tmax/dt; i++)
     {
-        u += dt * normalRandomVector<Vector6d>(normal, gen);
+        u += dt * randomNormal<double,6,1>(normal, gen);
         t += dt;
         y.errorStateDynamics(y.y_, dy, u, eta, dydot);
         dy += dydot * dt;

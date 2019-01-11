@@ -31,6 +31,7 @@ add_executable(nano_mhe_test
     src/test_mhe3d.cpp
     src/test_gps.cpp
     src/test_autodiff.cpp
+    src/test_ad_manifold.cpp
     src/test_lm.cpp)
 target_link_libraries(nano_mhe_test
     utils
